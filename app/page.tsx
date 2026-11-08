@@ -65,38 +65,45 @@ const MUSICALS = [
 export default function HomePage() {
   return (
     <>
-      {/* Hero — 800px, dark photo with left-weighted gradient */}
-      <section className="relative isolate flex min-h-[800px] flex-col overflow-hidden bg-[#0A0A0A]">
+      {/* Hero — 800px tall, photo with brand (blue→red) wash + dark fade */}
+      <section className="relative isolate flex h-[800px] flex-col overflow-hidden bg-[#0A0A0A]">
         <Image src={img("photo-1513635269975-59663e0ac1ad", 9)} alt="" fill priority sizes="100vw" className="object-cover" />
-        <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(8,8,8,0.57)_6%,rgba(8,8,8,0.45)_39%,rgba(8,8,8,0.09)_63%,rgba(8,8,8,0)_94%)]" />
+        {/* Brand wash: deep navy on the left, crimson on the right (Union-flag tint) */}
+        <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(1,33,115,0.72)_0%,rgba(1,33,115,0.30)_32%,rgba(8,8,8,0)_58%,rgba(229,30,63,0.30)_82%,rgba(229,30,63,0.62)_100%)]" />
+        {/* Readability fade so text/tiles stay legible over the centre */}
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,8,8,0.35)_0%,rgba(8,8,8,0.10)_38%,rgba(8,8,8,0.55)_100%)]" />
 
-        <div className="relative mx-auto flex w-full max-w-[1410px] flex-1 flex-col px-4 pt-[120px] pb-16 sm:px-6">
-          {/* Title + search */}
-          <div className="flex flex-col items-center gap-8 text-center">
-            <h1 className="font-heading text-5xl font-black tracking-tight text-white uppercase sm:text-7xl lg:text-[92px] lg:leading-[0.93]">
-              Discover London
+        <div className="relative mx-auto flex w-full max-w-[1410px] flex-1 flex-col px-4 py-16 sm:px-6">
+          {/* Title + search — centred in the upper half */}
+          <div className="flex flex-col items-center gap-8 pt-10 text-center">
+            <h1 className="font-heading text-5xl font-black tracking-tight text-white uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-7xl lg:text-[92px] lg:leading-[0.93]">
+              Discover <span className="text-[#E51E3F]">London</span>
             </h1>
-            <form className="flex w-full max-w-[656px] items-center gap-2 rounded-full bg-white p-2 shadow-xl">
-              <Search className="ml-3 size-5 text-muted-foreground" />
-              <input
-                placeholder="Ask MYLO, Your AI for London…"
-                className="h-9 flex-1 bg-transparent text-sm text-vml-ink placeholder:text-muted-foreground outline-none"
-              />
-              <button className="h-9 rounded-full bg-vml-navy px-6 text-sm font-medium text-white hover:bg-vml-navy/90">
-                Search
-              </button>
-            </form>
+
+            {/* Search pill with a blue→red gradient ring */}
+            <div className="w-full max-w-[656px] rounded-full bg-[linear-gradient(90deg,#012173_0%,#E51E3F_100%)] p-[2px] shadow-[0_8px_30px_rgba(0,0,0,0.25)]">
+              <form className="flex items-center gap-2 rounded-full bg-white p-1.5 pl-4">
+                <Search className="size-5 shrink-0 text-muted-foreground" />
+                <input
+                  placeholder="Ask MYLO, Your AI for London…"
+                  className="h-9 flex-1 bg-transparent text-sm text-vml-ink placeholder:text-muted-foreground outline-none"
+                />
+                <button className="h-10 shrink-0 rounded-full bg-vml-navy-deep px-7 text-sm font-semibold text-white transition-colors hover:bg-vml-navy">
+                  Search
+                </button>
+              </form>
+            </div>
           </div>
 
-          {/* 12 glass category tiles — 4 columns */}
-          <div className="mt-auto grid grid-cols-2 gap-3 pt-12 sm:grid-cols-3 lg:grid-cols-4">
+          {/* 12 glass category tiles — 4 columns, anchored near the bottom */}
+          <div className="mt-auto grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {HERO_TILES.map((t) => (
               <Link
                 key={t.label}
                 href={t.href}
                 className="flex h-[88px] items-center gap-[18px] rounded-xl border border-white/10 bg-[rgba(212,212,212,0.18)] px-[18px] backdrop-blur-[17.5px] transition-colors hover:bg-[rgba(212,212,212,0.28)]"
               >
-                <t.icon className="size-10 shrink-0 text-white" strokeWidth={1.5} />
+                <t.icon className="size-9 shrink-0 text-white" strokeWidth={1.5} />
                 <span className="font-heading text-[18px] leading-[19px] font-black text-white uppercase drop-shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
                   {t.label}
                 </span>

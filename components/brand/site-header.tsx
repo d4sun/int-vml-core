@@ -51,7 +51,7 @@ export function SiteHeader() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="border-b border-border bg-white lg:hidden">
-          <ul className="mx-auto max-w-7xl px-4 py-2 sm:px-6">
+          <ul className="mx-auto max-w-[1410px] px-4 py-2 sm:px-6">
             {PRIMARY_NAV.map((item) => (
               <li key={item.label} className="border-b border-border/60 last:border-0">
                 <Link

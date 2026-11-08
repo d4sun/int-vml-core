@@ -8,15 +8,18 @@ import { FOOTER_COLUMNS } from "@/lib/mock-data"
 // trademark reasons. We use neutral social-shaped icons as placeholders; swap for
 // real brand marks (e.g. simple-icons or inline SVGs) when wiring the footer up.
 
+/** Footer — spec: pure black, 56px/32px padding, 1400px content, Urbanist-700
+ *  uppercase column headings, Geist-14 links at 50% white, 36px social circles,
+ *  legal bar with an 8%-white top rule. */
 export function SiteFooter() {
   return (
-    <footer className="bg-vml-ink text-white/70">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-7">
+    <footer className="bg-black text-white/50">
+      <div className="mx-auto max-w-[1400px] px-8 py-14">
+        <div className="flex flex-col gap-10 lg:flex-row lg:gap-8">
           {/* Brand column */}
-          <div className="col-span-2 lg:col-span-2">
+          <div className="lg:w-[360px] lg:shrink-0">
             <Logo tone="light" />
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/60">
+            <p className="mt-5 max-w-[320px] text-sm leading-[23px] text-white/50">
               London&apos;s premier independent travel guide — your complete resource for exploring,
               experiencing, and loving London.
             </p>
@@ -25,7 +28,7 @@ export function SiteFooter() {
                 <a
                   key={i}
                   href="#"
-                  className="flex size-8 items-center justify-center rounded-full border border-white/15 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                  className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white transition-colors hover:bg-white/15"
                   aria-label="Social link"
                 >
                   <Icon className="size-4" />
@@ -35,25 +38,28 @@ export function SiteFooter() {
           </div>
 
           {/* Link columns */}
-          {FOOTER_COLUMNS.map((col) => (
-            <div key={col.heading}>
-              <h3 className="text-xs font-bold tracking-widest text-white uppercase">{col.heading}</h3>
-              <ul className="mt-4 space-y-2.5">
-                {col.links.map((l) => (
-                  <li key={l.label}>
-                    <Link href={l.href} className="text-sm text-white/60 transition-colors hover:text-white">
-                      {l.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div className="grid flex-1 grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
+            {FOOTER_COLUMNS.map((col) => (
+              <div key={col.heading}>
+                <h5 className="font-heading text-sm font-bold tracking-[0.7px] text-white uppercase">
+                  {col.heading}
+                </h5>
+                <ul className="mt-4 space-y-2">
+                  {col.links.map((l) => (
+                    <li key={l.label}>
+                      <Link href={l.href} className="text-sm text-white/50 transition-colors hover:text-white">
+                        {l.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-5 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        {/* Legal bar */}
+        <div className="mt-12 flex flex-col gap-3 border-t border-white/[0.08] pt-6 text-xs text-white/30 sm:flex-row sm:items-center sm:justify-between">
           <p>© 2026 VisitMyLondon.com.uk — All rights reserved. London&apos;s #1 independent travel guide.</p>
           <div className="flex flex-wrap gap-4">
             <Link href="/legal/privacy" className="hover:text-white">Privacy Policy</Link>

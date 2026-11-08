@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Share2, Heart, Check } from "lucide-react"
 import { DetailGallery } from "@/components/brand/detail-gallery"
-import { MapPlaceholder } from "@/components/brand/map-placeholder"
+import { VenueMapSection } from "@/components/brand/venue-map-section"
 import { NearbyRail } from "@/components/brand/nearby-rail"
 import { NewsletterCta } from "@/components/brand/newsletter-cta"
 import { EventTabs } from "@/components/brand/event-tabs"
@@ -36,7 +36,7 @@ export default async function EventDetailPage({
 
   return (
     <>
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-[1410px] px-4 py-8 sm:px-6">
         {/* Breadcrumb + header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -110,7 +110,7 @@ export default async function EventDetailPage({
         </div>
 
         <div className="mt-10">
-          <MapPlaceholder locationLabel="Westminster Bridge to Tower Bridge, London · United Kingdom" />
+          <VenueMapSection lat={51.5055} lng={-0.0754} label="Westminster Bridge to Tower Bridge, London · United Kingdom" />
         </div>
       </div>
 

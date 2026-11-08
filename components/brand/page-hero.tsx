@@ -19,10 +19,10 @@ export function PageHero({
     <section className="relative isolate overflow-hidden">
       <Image src={image} alt="" fill priority sizes="100vw" className="object-cover" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/20" />
-      <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="relative mx-auto max-w-[1410px] px-4 py-12 sm:px-6 sm:py-16">
         <nav className="flex items-center gap-1.5 text-xs text-white/80">
           {breadcrumb.map((crumb, i) => (
-            <span key={crumb} className="flex items-center gap-1.5">
+            <span key={`${crumb}-${i}`} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-white/50">/</span>}
               <Link href="#" className="hover:text-white">
                 {crumb}

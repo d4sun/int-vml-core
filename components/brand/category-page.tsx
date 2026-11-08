@@ -14,12 +14,18 @@ export function CategoryPage({ config, activePill }: { config: CategoryConfig; a
   // Repeat the sample listings to fill the grid for the UI pass.
   const listings = [...SAMPLE_LISTINGS, ...SAMPLE_LISTINGS].slice(0, 12)
 
+  // Append the title only when it isn't already the last breadcrumb crumb.
+  const breadcrumb =
+    config.breadcrumb[config.breadcrumb.length - 1] === config.title
+      ? config.breadcrumb
+      : [...config.breadcrumb, config.title]
+
   return (
     <>
       <PageHero
         title={config.title}
         subtitle={config.subtitle}
-        breadcrumb={[...config.breadcrumb, config.title]}
+        breadcrumb={breadcrumb}
         image={config.heroImage}
       />
 
@@ -27,7 +33,7 @@ export function CategoryPage({ config, activePill }: { config: CategoryConfig; a
         <CategoryPills activeHref={activePill ?? `/${config.slug}`} />
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 pb-6 sm:px-6">
+      <div className="mx-auto max-w-[1410px] px-4 pb-6 sm:px-6">
         <div className="flex flex-col gap-8 lg:flex-row">
           <FilterSidebar facets={config.facets} showPlaces={config.showPlaces} />
 

@@ -5,7 +5,7 @@ import { LONDON_VIDEOS } from "@/lib/mock-data"
 export function VideoBand() {
   return (
     <section className="bg-vml-pink text-white">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-[1410px] px-4 py-12 sm:px-6">
         <div className="flex items-start justify-between">
           <div>
             <span className="flex size-6 items-center justify-center rounded-full border border-white/40">

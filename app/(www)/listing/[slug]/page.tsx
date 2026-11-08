@@ -3,7 +3,7 @@ import { DetailGallery } from "@/components/brand/detail-gallery"
 import { BookingWidget } from "@/components/brand/booking-widget"
 import { AccordionList } from "@/components/brand/accordion-list"
 import { ReviewsBlock } from "@/components/brand/reviews-block"
-import { MapPlaceholder } from "@/components/brand/map-placeholder"
+import { VenueMapSection } from "@/components/brand/venue-map-section"
 import { NearbyRail } from "@/components/brand/nearby-rail"
 import { NewsletterCta } from "@/components/brand/newsletter-cta"
 
@@ -63,7 +63,7 @@ export default async function ListingDetailPage({
 
   return (
     <>
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-[1410px] px-4 py-8 sm:px-6">
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -152,12 +152,12 @@ export default async function ListingDetailPage({
               </div>
             </section>
 
-            <div className="mt-8 border-t border-border pt-8">
+            <div className="mt-10 border-t border-border pt-10">
               <ReviewsBlock />
             </div>
 
-            <div className="mt-8 border-t border-border pt-8">
-              <MapPlaceholder locationLabel="Tower Hill, London EC3N 4AB · United Kingdom" />
+            <div className="mt-10 border-t border-border pt-10">
+              <VenueMapSection lat={51.5081} lng={-0.0759} label="Tower Hill, London EC3N 4AB · United Kingdom" />
             </div>
           </div>
 

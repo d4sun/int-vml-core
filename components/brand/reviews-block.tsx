@@ -43,11 +43,11 @@ export function ReviewsBlock() {
         ))}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2">
         {REVIEWS.map((r) => (
-          <article key={r.name} className="rounded-xl border border-border p-4">
+          <article key={r.name} className="flex h-full flex-col rounded-xl border border-border p-4">
             <div className="flex items-center gap-3">
-              <span className={`flex size-9 items-center justify-center rounded-full text-sm font-semibold text-white ${r.color}`}>
+              <span className={`flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${r.color}`}>
                 {r.initial}
               </span>
               <div>
@@ -61,7 +61,7 @@ export function ReviewsBlock() {
         ))}
       </div>
 
-      <button className="mt-5 text-sm font-medium text-vml-red hover:underline">
+      <button className="mt-6 block text-sm font-medium text-vml-red hover:underline">
         Show all 2,847 reviews →
       </button>
     </section>
