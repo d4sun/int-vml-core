@@ -1,0 +1,388 @@
+// VisitMyLondon — core data model (MVP: Tours + Events)
+// Classic Prisma ORM. Money is stored in integer minor units (pence); never floats.
+//
+// NOTE ON GEO: The plan calls for PostGIS `geography` points. For the Supabase
+// dev phase we store plain `lat`/`lng` floats + a text address. This is portable
+// and migration-safe; when we move to a PostGIS-enabled Postgres we add a
+// generated geography column and a GiST index without reshaping the model.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // pooled (transaction mode) — app runtime
+  directUrl = env("DIRECT_URL")     // direct/session mode — migrations
+}
+
+// ---------------------------------------------------------------------------
+// Identity & roles
+// ---------------------------------------------------------------------------
+// Better Auth owns the auth tables (Session/Account/Verification) via its own
+// schema generation. `User` is modelled here because the whole domain FKs to it;
+// align field names with Better Auth when it is wired in.
+
+enum PlatformRole {
+  TOURIST
+  VENDOR
+  ADMIN
+}
+
+model User {
+  id            String       @id @default(uuid())
+  email         String       @unique
+  emailVerified Boolean      @default(false)
+  name          String?
+  image         String?
+  platformRole  PlatformRole @default(TOURIST)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  vendorMemberships VendorMember[]
+  bookings          Booking[]
+  trips             Trip[]
+  reviews           Review[]
+  holds             Hold[]
+}
+
+enum VendorRole {
+  OWNER
+  STAFF
+}
+
+model VendorMember {
+  id       String     @id @default(uuid())
+  userId   String
+  vendorId String
+  role     VendorRole @default(STAFF)
+  createdAt DateTime  @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vendorId])
+  @@index([vendorId])
+}
+
+// ---------------------------------------------------------------------------
+// Supply
+// ---------------------------------------------------------------------------
+
+enum VendorStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+model Vendor {
+  id                        String       @id @default(uuid())
+  name                      String
+  slug                      String       @unique
+  description               String?
+  status                    VendorStatus @default(PENDING)
+  stripeAccountId           String?      @unique
+  stripeOnboardingComplete  Boolean      @default(false)
+  commissionBpsOverride     Int?         // overrides category default when set
+  contactEmail              String?
+  approvedByAdminId         String?
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  members      VendorMember[]
+  listings     Listing[]
+  bookingItems BookingItem[]
+  reviews      Review[]
+
+  @@index([status])
+}
+
+enum CategoryType {
+  TIMED_SLOT
+  DATE_RANGE
+  TABLE
+  PASS
+}
+
+model Category {
+  id                   String       @id @default(uuid())
+  name                 String
+  slug                 String       @unique
+  parentId             String?
+  type                 CategoryType
+  commissionBpsDefault Int          @default(1000) // 10% default
+  createdAt            DateTime     @default(now())
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  listings Listing[]
+
+  @@index([parentId])
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+model Listing {
+  id          String        @id @default(uuid())
+  vendorId    String
+  categoryId  String
+  title       String
+  slug        String        @unique
+  description String?
+  // Geo: plain lat/lng for the Supabase dev phase (PostGIS deferred).
+  lat         Float?
+  lng         Float?
+  address     String?
+  images      String[]      @default([]) // S3 asset keys
+  status      ListingStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  vendor   Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category Category  @relation(fields: [categoryId], references: [id])
+  products Product[]
+  reviews  Review[]
+  tripItems TripItem[]
+
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+enum ProductKind {
+  TIMED_SLOT
+  DATE_RANGE
+  TABLE
+  PASS
+}
+
+model Product {
+  id        String      @id @default(uuid())
+  listingId String
+  name      String
+  kind      ProductKind @default(TIMED_SLOT)
+  basePrice Int         // pence
+  currency  String      @default("GBP")
+  policy    Json        // { cancelWindowHours, bookingCutoffHours }
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  listing      Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  availability Availability[]
+  bookingItems BookingItem[]
+
+  @@index([listingId])
+}
+
+model Availability {
+  id            String   @id @default(uuid())
+  productId     String
+  startAt       DateTime
+  endAt         DateTime
+  capacity      Int
+  remaining     Int
+  priceOverride Int?     // pence
+  createdAt     DateTime @default(now())
+
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  bookingItems BookingItem[]
+  holds        Hold[]
+
+  @@index([productId, startAt])
+}
+
+// ---------------------------------------------------------------------------
+// Booking & money  (amounts in integer pence)
+// ---------------------------------------------------------------------------
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  CANCELLED
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  touristUserId String
+  status        BookingStatus @default(PENDING)
+  total         Int           // pence
+  currency      String        @default("GBP")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tourist User          @relation(fields: [touristUserId], references: [id])
+  items   BookingItem[]
+  payment Payment?
+
+  @@index([touristUserId])
+  @@index([status])
+}
+
+enum BookingItemStatus {
+  PENDING
+  CONFIRMED
+  FULFILLED
+  NO_SHOW
+  CANCELLED
+  REFUNDED
+}
+
+model BookingItem {
+  id               String            @id @default(uuid())
+  bookingId        String
+  productId        String
+  availabilityId   String
+  vendorId         String
+  quantity         Int
+  unitPrice        Int               // pence
+  subtotal         Int               // pence
+  commissionAmount Int               // pence
+  status           BookingItemStatus @default(PENDING)
+  fulfilledAt      DateTime?
+
+  booking      Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+  availability Availability @relation(fields: [availabilityId], references: [id])
+  vendor       Vendor       @relation(fields: [vendorId], references: [id])
+  transfers    Transfer[]
+  refunds      Refund[]
+  review       Review?
+
+  @@index([bookingId])
+  @@index([vendorId])
+  @@index([availabilityId])
+}
+
+model Payment {
+  id                   String   @id @default(uuid())
+  bookingId            String   @unique
+  stripePaymentIntentId String  @unique
+  amount               Int      // pence
+  currency             String   @default("GBP")
+  status               String
+  applicationFeeAmount Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Transfer {
+  id              String   @id @default(uuid())
+  bookingItemId   String
+  stripeTransferId String  @unique
+  amount          Int      // pence
+  status          String
+  createdAt       DateTime @default(now())
+
+  bookingItem BookingItem @relation(fields: [bookingItemId], references: [id])
+
+  @@index([bookingItemId])
+}
+
+model Refund {
+  id                String   @id @default(uuid())
+  bookingItemId     String
+  amount            Int      // pence
+  reason            String?
+  stripeRefundId    String?  @unique
+  transferReversalId String?
+  status            String
+  createdAt         DateTime @default(now())
+
+  bookingItem BookingItem @relation(fields: [bookingItemId], references: [id])
+
+  @@index([bookingItemId])
+}
+
+// Inventory reservation with TTL — converted to a permanent decrement on
+// payment success, or released by a pg-boss expiry job.
+model Hold {
+  id             String   @id @default(uuid())
+  availabilityId String
+  userId         String
+  quantity       Int
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  availability Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([availabilityId])
+  @@index([expiresAt])
+}
+
+// Idempotent Stripe webhook processing.
+model WebhookEvent {
+  id            String   @id @default(uuid())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Planning & trust
+// ---------------------------------------------------------------------------
+
+model Trip {
+  id            String   @id @default(uuid())
+  touristUserId String
+  name          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tourist User       @relation(fields: [touristUserId], references: [id], onDelete: Cascade)
+  items   TripItem[]
+
+  @@index([touristUserId])
+}
+
+model TripItem {
+  id          String    @id @default(uuid())
+  tripId      String
+  listingId   String
+  note        String?
+  plannedDate DateTime?
+  position    Int       @default(0)
+
+  trip    Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Review {
+  id            String       @id @default(uuid())
+  bookingItemId String       @unique // verified purchase
+  touristUserId String
+  vendorId      String
+  listingId     String
+  rating        Int          // 1..5
+  body          String?
+  status        ReviewStatus @default(PENDING)
+  createdAt     DateTime     @default(now())
+
+  bookingItem BookingItem @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+  tourist     User        @relation(fields: [touristUserId], references: [id])
+  vendor      Vendor      @relation(fields: [vendorId], references: [id])
+  listing     Listing     @relation(fields: [listingId], references: [id])
+
+  @@index([listingId])
+  @@index([vendorId])
+}
