@@ -31,7 +31,7 @@ export function VenueMapSection({
       <h2 className="text-lg font-bold text-vml-ink">Where you&apos;ll be</h2>
       <p className="mt-1 text-sm text-muted-foreground">{label}</p>
 
-      <div className="relative mt-4 h-80 overflow-hidden rounded-xl border border-border">
+      <div className="relative isolate z-0 mt-4 h-80 overflow-hidden rounded-xl border border-border">
         <VenueMap lat={lat} lng={lng} label={label} />
         <a
           href={gmaps}

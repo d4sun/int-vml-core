@@ -13,7 +13,7 @@ export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-50 w-full">
+    <header className="sticky top-0 z-[9999] w-full">
       {/* Deep-navy utility bar (#012173, 88px) */}
       <div className="bg-vml-navy-deep text-white">
         <div className="mx-auto flex h-[88px] max-w-[1410px] items-center gap-4 px-4 sm:px-6">
