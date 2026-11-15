@@ -16,7 +16,7 @@ _A single, ordered, agent-executable backlog for the VML MVP business logic: use
 
 Everything an agent needs to decide _what_ to build is in §2–§7 (rules, model, tests). Everything about _how to work_ is in §1 and §10.
 
-**Status legend:** `[ ]` todo · `[~]` implemented, PR not yet raised/merged · `[x]` merged to `develop`
+**Status legend:** `[ ]` todo · `[~]` in progress / PR open · `[x]` merged to `develop`
 
 ---
 
@@ -55,13 +55,16 @@ pnpm exec prisma generate
 pnpm exec prisma migrate status           # when the task touches the schema: run `prisma migrate dev` first, confirm no drift
 pnpm exec tsc --noEmit
 pnpm exec eslint .
-pnpm exec prettier --check <changed files>
-TEST_DATABASE_URL=postgresql://…/vml_test pnpm test      # unit + integration
-pnpm test:e2e                                             # only if the task card lists E2E
-pnpm build                                                # `next build`
+pnpm exec prettier --check <changed files>   # repo-wide check is not green yet (see §11)
+pnpm test:unit                               # no external services
+TEST_DATABASE_URL=postgresql://…/vml_test pnpm test:integration
+pnpm test:e2e                                # only if the task card lists E2E
+pnpm build                                   # `next build`
 ```
 
 Also: no secrets committed; `.env.example` updated if a new env var was added; no `console.log` left; no change to unrelated files.
+
+CI runs the same gates (`.github/workflows/ci.yml`) against a Postgres 17 service, so a task that passes locally should pass there. `TEST_DATABASE_URL` must be a **direct/session** connection whose database name contains `test`; the transaction-mode pooler cannot serve migrations or pg-boss.
 
 ### 1.5 Commit, push, PR
 
@@ -432,32 +435,33 @@ Booking/checkout/webhook/refund code depends only on the `AvailabilityModule` in
 
 ### 4.6 Schema change ledger (which task introduces what)
 
-| Entity/change                                                   | Introduced by                                                                     |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Session, Account, Verification, RateLimit; `User.name` NOT NULL | **E0-S1-02** (done, hand-written migration `20261115040000_better_auth_identity`) |
-| `AuditLog`                                                      | E8-S1-01                                                                          |
-| `Dispute`                                                       | E10-S2-03                                                                         |
-| FTS `tsvector` + GIN index on Listing                           | E1-S1-01                                                                          |
-| Everything else                                                 | already in `20261108044754_init`                                                  |
+| Entity/change                                                   | Introduced by                                                                                  |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Session, Account, Verification, RateLimit; `User.name` NOT NULL | **E0-S1-02** (not yet written; migration `20261115040000_better_auth_identity` does not exist) |
+| `pgboss` schema (pg-boss v46)                                   | **E0-S0-01** (`20261115120000_pg_boss`)                                                        |
+| `AuditLog`                                                      | E8-S1-01                                                                                       |
+| `Dispute`                                                       | E10-S2-03                                                                                      |
+| FTS `tsvector` + GIN index on Listing                           | E1-S1-01                                                                                       |
+| Everything else                                                 | already in `20261108044754_init`                                                               |
 
 ---
 
 ## 5. Testing conventions
 
-| Aspect      | Convention                                                                                                                                                                                                            |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runner      | Vitest 5, projects `unit` and `integration`; Playwright for e2e                                                                                                                                                       |
-| Layout      | `tests/unit/*.test.ts`, `tests/integration/*.test.ts`, `tests/e2e/*.spec.ts`, helpers in `tests/helpers`, `tests/e2e/support.ts`                                                                                      |
-| Naming      | test titles start with their ID: `TC-E0S2-03: …`, `IT-08: …`, `E2E-01: …`                                                                                                                                             |
-| DB          | `TEST_DATABASE_URL` required; the DB name **must contain `test`** (helper refuses otherwise). Integration tests migrate/reset and clean per file.                                                                     |
-| Auth/email  | `makeHarness()` (tests/helpers/auth-harness) builds Better Auth against the test DB with a `RecordingEmailQueue`; e2e reads mail from `EMAIL_OUTBOX_DIR` via `FileEmailSender` (dev/test only, refused in production) |
-| Rate limits | each test uses its own `x-forwarded-for` IP (`freshIp()` / `uniqueIp()`) so tests don't throttle each other                                                                                                           |
-| Time        | use fake timers / injectable clock; never `sleep` for expiry                                                                                                                                                          |
-| Stripe      | an `StripeAdapter` interface with a **fake** (unit/integration) and **real test-mode** implementation (smoke + e2e). Webhook tests feed signed fixture payloads.                                                      |
-| Money       | assert exact integer pence; add a property-style test where rounding exists                                                                                                                                           |
-| Gates       | every authorization/state-gate has a negative test (and is mutation-checked)                                                                                                                                          |
-| Coverage    | `@vitest/coverage-v8`; target ≥ 85 % on `lib/**/service*` and money code, not enforced on UI                                                                                                                          |
-| Scripts     | `pnpm test`, `test:unit`, `test:integration`, `test:e2e`                                                                                                                                                              |
+| Aspect      | Convention                                                                                                                                                                                                                                                                                                                                          |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runner      | Vitest 5, projects `unit` and `integration`; Playwright for e2e                                                                                                                                                                                                                                                                                     |
+| Layout      | `tests/unit/*.test.ts`, `tests/integration/*.test.ts`, `tests/e2e/*.spec.ts`, helpers in `tests/helpers`, `tests/e2e/support.ts`                                                                                                                                                                                                                    |
+| Naming      | test titles start with their ID: `TC-E0S2-03: …`, `IT-08: …`, `E2E-01: …`                                                                                                                                                                                                                                                                           |
+| DB          | `TEST_DATABASE_URL` required; the DB name **must contain `test`** (helper refuses otherwise). `tests/helpers/global-setup.ts` runs `prisma migrate deploy` once per integration run; `truncatePublicSchema()` cleans between files, and the `pgboss` schema is deliberately left intact.                                                            |
+| Auth/email  | `tests/helpers/email-queue-contract.ts` runs one contract against `InProcessEmailQueue` (unit) and `PgBossEmailQueue` (integration); `RecordingEmailSender` records/fails on demand; e2e reads mail from `EMAIL_OUTBOX_DIR` via `FileEmailSender` (dev/test only, refused in production). The auth harness (`makeHarness()`) arrives with E0-S1-02. |
+| Rate limits | each test uses its own `x-forwarded-for` IP (`freshIp()` / `uniqueIp()`) so tests don't throttle each other                                                                                                                                                                                                                                         |
+| Time        | use fake timers / injectable clock; never `sleep` for expiry                                                                                                                                                                                                                                                                                        |
+| Stripe      | an `StripeAdapter` interface with a **fake** (unit/integration) and **real test-mode** implementation (smoke + e2e). Webhook tests feed signed fixture payloads.                                                                                                                                                                                    |
+| Money       | assert exact integer pence; add a property-style test where rounding exists                                                                                                                                                                                                                                                                         |
+| Gates       | every authorization/state-gate has a negative test (and is mutation-checked)                                                                                                                                                                                                                                                                        |
+| Coverage    | `@vitest/coverage-v8`; target ≥ 85 % on `lib/**/service*` and money code, not enforced on UI                                                                                                                                                                                                                                                        |
+| Scripts     | `pnpm test`, `test:unit`, `test:integration`, `test:e2e`                                                                                                                                                                                                                                                                                            |
 
 ---
 
@@ -522,7 +526,7 @@ Booking/checkout/webhook/refund code depends only on the `AvailabilityModule` in
 | E2E-08 | Two tourists race the last slot                                                           | one confirms, other sees "just sold out"                            |
 | E2E-09 | Webhook-authoritative confirm (drop redirect)                                             | booking confirms via webhook                                        |
 
-The auth e2e suite for E0-S1 already exists (`tests/e2e/register-verify.spec.ts`, 8 tests); the numbered journeys above are built up as their stories land (see task cards), and **T-X-01** closes any that remain.
+There is no e2e suite yet: no `playwright.config.*` and no `tests/e2e/` directory exist. E0-S1-07 adds the first one and activates the guarded `e2e` CI job; the numbered journeys above are built up as their stories land (see task cards), and **T-X-01** closes any that remain.
 
 ---
 
@@ -532,8 +536,8 @@ Pick the first unchecked story whose dependencies are `[x]`; work its tasks top-
 
 | #   | Story  | Name                                         | Status |
 | --- | ------ | -------------------------------------------- | ------ |
-| 1   | E0-S0  | Platform foundations (jobs, CI, errors)      | [ ]    |
-| 2   | E0-S1  | Register & verify email                      | [~]    |
+| 1   | E0-S0  | Platform foundations (jobs, CI, errors)      | [~]    |
+| 2   | E0-S1  | Register & verify email                      | [ ]    |
 | 3   | E0-S2  | Sign in, reset password, profile             | [ ]    |
 | 4   | E0-S3  | RBAC guards & route protection               | [ ]    |
 | 5   | E8-S1  | Approve / reject / suspend vendors           | [ ]    |
@@ -573,32 +577,37 @@ Pick the first unchecked story whose dependencies are `[x]`; work its tasks top-
 
 _As the team, we want shared infrastructure so every later story is built on durable jobs, consistent errors and CI._
 
-| Task                                    | Deliverables                                                                                                                                                                         | Tests                                                                                                                           | Done-when                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **E0-S0-01** pg-boss job infrastructure | `lib/jobs/{boss,queues,register}.ts`; worker bootstrap; migrate pg-boss schema; replace `InProcessEmailQueue` with a pg-boss-backed `EmailQueue` (same interface), retries + backoff | U: queue contract tests run against both impls. I: enqueued email job is delivered once, retried on failure, survives a restart | email sends are durable; `InProcessEmailQueue` only used in unit tests |
-| **E0-S0-02** Service conventions        | `lib/errors.ts` (`AppError`, `NotFound`, `Forbidden`, `Conflict`, `ValidationError`), `lib/result.ts`, action wrapper mapping errors → HTTP/UI                                       | U: mapping table                                                                                                                | all services throw typed errors                                        |
-| **E0-S0-03** CI workflow                | `.github/workflows/ci.yml`: install, prisma generate, tsc, eslint, prettier, Postgres service, unit+integration, build; e2e job (Playwright) on PR                                   | CI run green on a trivial PR                                                                                                    | PRs show required checks                                               |
+| Task                                    | Deliverables                                                                                                                                                                                                                | Tests                                                                                                                           | Done-when                                                              | State              |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------ |
+| **E0-S0-01** pg-boss job infrastructure | `lib/jobs/{boss,config,queues,register,email-queue,logger}.ts`; `scripts/jobs-worker.ts` (`pnpm worker`); pg-boss schema committed as a Prisma migration; `EmailQueue` contract + pg-boss implementation, retries + backoff | U: queue contract tests run against both impls. I: enqueued email job is delivered once, retried on failure, survives a restart | email sends are durable; `InProcessEmailQueue` only used in unit tests | [x] PR #3 (merged) |
+| **E0-S0-02** Service conventions        | `lib/errors.ts` (`AppError`, `NotFound`, `Forbidden`, `Conflict`, `ValidationError`), `lib/result.ts`, action wrapper mapping errors → HTTP/UI                                                                              | U: mapping table                                                                                                                | all services throw typed errors                                        | [~] PR #5          |
+| **E0-S0-03** CI workflow                | `.github/workflows/ci.yml`: install, prisma generate, tsc, eslint, prettier, Postgres service, unit+integration, build; e2e job (Playwright) on PR                                                                          | CI run green on a trivial PR                                                                                                    | PRs show required checks                                               | [~] PR #4          |
 
-#### E0-S1 — Register & verify email _(UC-01)_ — **implemented; status `[~]`**
+> **Order deviation:** E0-S0-03 was implemented before E0-S0-02 so the integration tests merged in PR #3 would run for the first time against a real Postgres. See §11.
+> **E0-S0-01 deltas vs. this card:** `lib/email/*` did not exist on `develop` (E0-S1-03 was never merged), so this task defined the `EmailQueue`/`EmailSender` contracts and a minimal Vitest harness itself. Open the E0-S1-03 card with that context.
+
+#### E0-S1 — Register & verify email _(UC-01)_ — **not started (re-baselined 2026-11-15)**
+
+> **Re-baseline:** this story was marked `[~]` ("implemented") in the first version of this document, but no E0-S1 code, migration or test exists anywhere in the repository history (`git log --all`). The work described below has to be built from scratch; the states are reset to `[ ]`. See §11.
 
 _As a Guest, I want to create an account and confirm my email so that I can book and the platform can trust my identity._
 
 **Acceptance:** valid registration creates `User(TOURIST, emailVerified=false)` + verification token and enqueues one email · valid token verifies + signs in · weak password rejected server-side · duplicate email → generic response, no second row (CR-9) · register/resend rate-limited (CR-8).
 
-| Task                                   | Deliverables                                                                                                                              | Tests | State |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| E0-S1-01 Shared validation             | `lib/validation/auth.ts` (`registerSchema`, password policy min 8/max 128, ≥1 letter, ≥1 digit)                                           | U     | [~]   |
-| E0-S1-02 Better Auth + Prisma identity | `lib/auth/config.ts`, `lib/auth.ts`, `lib/auth-client.ts`, route `app/api/auth/[...all]`, migration `20261115040000_better_auth_identity` | I     | [~]   |
-| E0-S1-03 Email layer                   | `lib/email/*` (templates, Resend, File, Console, interim in-process queue), `lib/env.ts`                                                  | U     | [~]   |
-| E0-S1-04 Verification flow             | verify callback `/verify-email/complete`, resend verification, expiry (1h)                                                                | I     | [~]   |
-| E0-S1-05 UI                            | `/register`, `/verify-email/complete`, `components/auth/*`                                                                                | E     | [~]   |
-| E0-S1-06 Rate limits                   | `/sign-up/email` 5/min, `/send-verification-email` 3/min (Postgres-backed)                                                                | I     | [~]   |
-| E0-S1-07 Tests                         | 77 Vitest (45 unit + 32 integration) + 8 Playwright                                                                                       | all   | [~]   |
+| Task                                   | Deliverables                                                                                                                                                                                                           | Tests | State |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| E0-S1-01 Shared validation             | `lib/validation/auth.ts` (`registerSchema`, password policy min 8/max 128, ≥1 letter, ≥1 digit)                                                                                                                        | U     | [ ]   |
+| E0-S1-02 Better Auth + Prisma identity | `lib/auth/config.ts`, `lib/auth.ts`, `lib/auth-client.ts`, route `app/api/auth/[...all]`, migration `20261115040000_better_auth_identity`                                                                              | I     | [ ]   |
+| E0-S1-03 Email layer                   | `lib/email/templates/*`, Resend + File senders behind the **existing** `EmailSender` contract, `lib/env.ts`; keep the `EmailQueue` interface from E0-S0-01 and drop the `EMAIL_OUTBOX_DIR` requirement from the worker | U     | [ ]   |
+| E0-S1-04 Verification flow             | verify callback `/verify-email/complete`, resend verification, expiry (1h)                                                                                                                                             | I     | [ ]   |
+| E0-S1-05 UI                            | `/register`, `/verify-email/complete`, `components/auth/*`                                                                                                                                                             | E     | [ ]   |
+| E0-S1-06 Rate limits                   | `/sign-up/email` 5/min, `/send-verification-email` 3/min (Postgres-backed)                                                                                                                                             | I     | [ ]   |
+| E0-S1-07 Tests                         | 77 Vitest (45 unit + 32 integration) + 8 Playwright; **plus** `playwright.config.ts` and `pnpm test:e2e`, which activates the guarded `e2e` CI job                                                                     | all   | [ ]   |
 
-Test cases: TC-E0S1-01 valid registration (unverified user, email enqueued) · -02 duplicate email (generic, no 2nd user) · -03 weak password rejected server-side · -04 valid token → verified + session · -05 expired/invalid token rejected, resend offered · -06 6 registrations/min from one IP → throttled. Extras covered: unverified sign-in 403, `platformRole` not client-settable, input normalisation, provider outage, resend enumeration-safety.
+Test cases: TC-E0S1-01 valid registration (unverified user, email enqueued) · -02 duplicate email (generic, no 2nd user) · -03 weak password rejected server-side · -04 valid token → verified + session · -05 expired/invalid token rejected, resend offered · -06 6 registrations/min from one IP → throttled. Also cover: unverified sign-in 403, `platformRole` not client-settable, input normalisation, provider outage, resend enumeration-safety.
 
-> **Deviation (see §11):** Better Auth verification tokens are stateless JWTs, so resending does **not** invalidate the earlier token; it only expires after 1 h. AC wording "old token invalidated" is relaxed accordingly.
-> **Remaining to close this story:** apply the bundle on a feature branch, run `prisma migrate dev` (confirm no drift), run the full gate (§1.4), commit and raise the PR. Branch: `feat/e0-s1-register-verify`.
+> **Known constraint (see §11):** Better Auth's email-verification token is a stateless JWT, so resending will **not** invalidate the earlier link; it expires after 1 h. If that is unacceptable, relax the AC wording — do not invent stateful tokens.
+> **Start here:** branch `feat/e0-s1-register-verify` from `develop`, implement 01→07 in order, run the full gate (§1.4). E0-S0-01/02/03 are the only platform pieces already in place.
 
 #### E0-S2 — Sign in, reset password, manage profile _(UC-02)_
 
@@ -748,13 +757,13 @@ Test cases: TC-E9S1-01 approve → PUBLISHED (searchable) · -02 reject with rea
 _As a Guest/Tourist, I want to search and filter listings and see them on a map so I can find things to book._
 **Acceptance:** only `PUBLISHED` listings of `APPROVED` vendors · FTS over title/description · category/area/date/price filters compose (AND) · date filter only surfaces products with a bookable future slot (remaining > 0, before cutoff) · map via lat/lng bounding box · SSR for SEO.
 
-| Task                                        | Deliverables                                                                                                                 | Tests                                           | Done-when                 |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------- |
-| **E1-S1-01** FTS + filter builder           | migration: `tsvector` generated column + GIN index; `lib/search/service.ts` (uses `publiclyVisibleListingWhere`), pagination | U: filter builder; I: TC-E1S1-01/-02/-04, IT-17 | scoped results only       |
-| **E1-S1-02** Availability-aware date filter | join to future `Availability` (remaining>0, cutoff in UTC)                                                                   | I: TC-E1S1-03                                   | past-cutoff slots ignored |
-| **E1-S1-03** Bounding-box geo               | `bbox` query + haversine ordering helper                                                                                     | U: haversine; I: TC-E1S1-05                     | only in-viewport listings |
-| **E1-S1-04** SSR pages                      | `/explore`, `/listings/[slug]` (metadata + schema.org JSON-LD), London-time rendering                                        | E: page renders, meta present                   | indexable                 |
-| **E1-S1-05** Filter UI + map island         | URL-driven filters, map component                                                                                            | E                                               | filters reflected in URL  |
+| Task                                        | Deliverables                                                                                                                             | Tests                                           | Done-when                                |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------- |
+| **E1-S1-01** FTS + filter builder           | migration: `tsvector` generated column + GIN index; `lib/search/service.ts` (uses `publiclyVisibleListingWhere`), pagination             | U: filter builder; I: TC-E1S1-01/-02/-04, IT-17 | scoped results only                      |
+| **E1-S1-02** Availability-aware date filter | join to future `Availability` (remaining>0, cutoff in UTC)                                                                               | I: TC-E1S1-03                                   | past-cutoff slots ignored                |
+| **E1-S1-03** Bounding-box geo               | `bbox` query + haversine ordering helper                                                                                                 | U: haversine; I: TC-E1S1-05                     | only in-viewport listings                |
+| **E1-S1-04** SSR pages                      | `/explore`, `/listings/[slug]` (metadata + schema.org JSON-LD), London-time rendering; **retire `lib/mock-data.ts`** — pages read Prisma | E: page renders, meta present                   | indexable; no mock data left in app code |
+| **E1-S1-05** Filter UI + map island         | URL-driven filters, map component                                                                                                        | E                                               | filters reflected in URL                 |
 
 Test cases: TC-E1S1-01 draft/pending listing never in results · -02 suspended vendor's listing excluded · -03 all slots past cutoff → not returned for that date · -04 price + category → both applied · -05 map viewport → only inside bbox.
 
@@ -962,8 +971,11 @@ Test cases: TC-E7S1-01 owner adds staff → `VendorMember(STAFF)` · -02 staff a
 
 ## 10. Environment & operational notes for the agent
 
-- **Env vars** (see `.env.example`): `DATABASE_URL`, `DIRECT_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_OUTBOX_DIR` (dev/test only), `TEST_DATABASE_URL`; added by later tasks: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, S3 settings. Update `.env.example` in the task that introduces them. Never commit real secrets.
-- **Prisma:** classic generator; `lib/prisma.ts` is the single client — don't modify casually. Schema changes → `prisma migrate dev --name <slug>`, commit the generated migration, and confirm `prisma migrate status` is clean.
+- **Env vars** (see `.env.example`): `DATABASE_URL`, `DIRECT_URL`, `JOBS_DATABASE_URL` (optional, defaults to `DIRECT_URL`), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_OUTBOX_DIR` (dev/test only), `TEST_DATABASE_URL`; added by later tasks: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, S3 settings. Update `.env.example` in the task that introduces them. Never commit real secrets.
+- **Connection modes matter.** `DATABASE_URL` may be a transaction-mode pooler for the app, but migrations, `TEST_DATABASE_URL` and `JOBS_DATABASE_URL` must be **direct/session** connections: pg-boss needs advisory locks, `LISTEN/NOTIFY` and session state, none of which survive a transaction pooler. `TEST_DATABASE_URL` must also name a database containing `test` (the harness refuses otherwise).
+- **Prisma:** classic generator; `lib/prisma.ts` is the single client — don't modify casually. Schema changes → `prisma migrate dev --name <slug>`, commit the generated migration, and confirm `prisma migrate status` is clean. The pg-boss schema is committed as `prisma/migrations/*_pg_boss` and applied by `migrate deploy`; runtime uses `migrate: false`, so the DB role needs no `CREATE` privilege.
+- **Background jobs:** `pnpm worker` runs the pg-boss worker (`scripts/jobs-worker.ts`); `pnpm jobs:plans` prints the pg-boss schema SQL for regeneration after a pg-boss bump. Delivery is **at-least-once** — handlers must be idempotent; "exactly one email" is enforced at enqueue time.
+- **Toolchain:** Node 26, pnpm 12.16.1 (pinned in CI, not via `packageManager` — that injects pnpm self-management entries into the lockfile), Postgres 17 in CI, Next.js 16 (App Router). Node is not on `PATH` in some sandboxes; `nvm use` first.
 - **Next.js 16:** read `node_modules/next/dist/docs/` (per `AGENTS.md`) before using route handlers/server actions; `searchParams` is async.
 - **Money & time:** integer pence, UTC storage, London rendering (CR-5/6). No floats in money paths.
 - **Don't expand scope:** `DATE_RANGE | TABLE | PASS` modules stay unimplemented; PostGIS deferred.
@@ -973,12 +985,23 @@ Test cases: TC-E7S1-01 owner adds staff → `VendorMember(STAFF)` · -02 staff a
 
 ## 11. Deviations log (append as you go)
 
-| Date       | Task  | Deviation                                                                      | Reason                                               | Follow-up                                                   |
-| ---------- | ----- | ------------------------------------------------------------------------------ | ---------------------------------------------------- | ----------------------------------------------------------- |
-| 2026-11-15 | E0-S1 | Resending a verification email does not invalidate earlier links               | Better Auth tokens are stateless JWTs; expiry is 1 h | none for MVP; revisit if needed                             |
-| 2026-11-15 | E0-S1 | Interim in-process email queue (non-durable)                                   | pg-boss deferred to E0-S0-01                         | E0-S0-01 replaces it                                        |
-| 2026-11-15 | E0-S1 | `@prisma/adapter-pg` used in tests with classic engine; migration hand-written | no Prisma engines in sandbox                         | confirm on dev machine: `prisma migrate dev` shows no drift |
-| 2026-11-15 | E0-S1 | Links to `/sign-in` and `/forgot-password` in "already registered" email       | pages belong to E0-S2                                | fixed in E0-S2-05                                           |
+| Date       | Task     | Deviation                                                                                                                                                                                                    | Reason                                                                                         | Follow-up                                                                          |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 2026-11-15 | E0-S1    | Story re-baselined from `[~]` to `[ ]`; earlier §11 rows for E0-S1 kept for history but describe work that never landed                                                                                      | No E0-S1 code, migration or test exists in any branch or commit (`git log --all`)              | implement E0-S1-01..07 from scratch                                                |
+| 2026-11-15 | E0-S1    | ~~Resending a verification email does not invalidate earlier links~~ (design constraint, not yet implemented)                                                                                                | Better Auth tokens are stateless JWTs; expiry 1 h                                              | relax AC wording or accept                                                         |
+| 2026-11-15 | E0-S1    | ~~Interim in-process email queue (non-durable)~~                                                                                                                                                             | superseded: E0-S0-01 shipped the durable queue                                                 | none                                                                               |
+| 2026-11-15 | E0-S0-01 | `EmailQueue`/`EmailSender` contracts defined in this task, although the card assigns `lib/email/*` to E0-S1-03                                                                                               | E0-S1-03 was not on `develop`; the card could not be implemented against a missing interface   | E0-S1-03 consumes these contracts instead of adding a second one                   |
+| 2026-11-15 | E0-S0-01 | Minimal Vitest harness (`vitest.config.ts`, unit+integration projects, helpers) bootstrapped inside this task                                                                                                | The card requires U + I tests and no test runner existed                                       | E0-S0-03 wires it into CI; coverage thresholds still owned by E0-S1-07             |
+| 2026-11-15 | E0-S0-01 | pg-boss schema committed as a Prisma migration instead of being installed at runtime                                                                                                                         | DDL in `prisma migrate deploy` keeps environments reproducible; runtime role needs no `CREATE` | regenerate with `pnpm jobs:plans` on a pg-boss bump                                |
+| 2026-11-15 | E0-S0-01 | Jobs connect via `JOBS_DATABASE_URL ?? DIRECT_URL ?? DATABASE_URL`                                                                                                                                           | pg-boss cannot use a transaction-mode pooler                                                   | keep the direct URL in every environment                                           |
+| 2026-11-15 | E0-S0-01 | Delivery is **at-least-once**, so CR-7 "exactly one email" is enforced at enqueue, not delivery                                                                                                              | pg-boss semantics; no dedupe table in scope                                                    | handlers idempotent; revisit if a duplicate send is observed                       |
+| 2026-11-15 | E0-S0-01 | PR #3 merged before `IT-E0S0-01..06` had ever executed (no reachable Postgres; migration and retry/restart semantics verified against embedded PGlite only)                                                  | sandbox had no Postgres and the configured Supabase host does not resolve                      | **resolved:** all 6 ITs passed in CI on PR #4 (2026-11-15)                         |
+| 2026-11-15 | E0-S0-03 | Executed before E0-S0-02                                                                                                                                                                                     | Its CI run is the first real execution of PR #3's integration tests                            | none                                                                               |
+| 2026-11-15 | E0-S0-03 | Prettier gate checks **only files changed in the PR**                                                                                                                                                        | 34 pre-existing files (components, docs, configs, seed) fail `prettier --check .`              | one-time repo-wide `prettier --write .` PR, then switch the gate to the whole repo |
+| 2026-11-15 | E0-S0-03 | pnpm pinned in `pnpm/action-setup` rather than a `packageManager` field                                                                                                                                      | `packageManager` made pnpm 12 inject ~158 lockfile lines of its own dependencies               | revisit when pnpm stops doing that                                                 |
+| 2026-11-15 | E0-S0-03 | e2e job is conditional on a `playwright.config.*` existing                                                                                                                                                   | no Playwright setup exists; a permanent red required check would block every PR                | E0-S1-07 adds the config and activates the job                                     |
+| 2026-11-15 | E1-S1    | `lib/mock-data.ts` still backs `/[category]` and `/listing/[slug]`                                                                                                                                           | pre-backend placeholder UI                                                                     | E1-S1-04 replaces it with Prisma queries and deletes the file                      |
+| 2026-11-15 | All      | Repo-wide Prettier debt: `lib/mock-data.ts`, `lib/prisma.ts`, `README.md`, `CONTRIBUTING.md`, `docs/*`, `components/ui/*`, `eslint.config.mjs`, `tsconfig.json`, `prisma/seed.ts` and others are unformatted | formatting them in feature PRs would bury real diffs                                           | one standalone `chore(format): apply prettier repo-wide` PR                        |
 
 ---
 
@@ -988,3 +1011,29 @@ Test cases: TC-E7S1-01 owner adds staff → `VendorMember(STAFF)` · -02 staff a
 - **Decisions:** D2 reviews (E3-S3, E9-S3) · D3 multi-vendor (E2) · D4 hybrid refund policy (E5-S2, E3-S2, E10-S1) · D5 commission order (CR-5, E2-S1-01).
 - **Invariants → tests:** §4.5 constraints 1–7 map to IT-19, IT-15/14, IT-14/17, IT-16, IT-01, IT-20, IT-08 respectively.
 - **User types → surfaces:** Tourist `(www)`, Vendor `vendor/`, Admin `admin/`.
+
+### 12.1 Decisions that must be fixed before their tasks start
+
+The constants below are **not decided**. They are listed so nobody invents a value inside a feature branch; record the answer here (and in the task PR) before implementing. "Current repo" says what the code implies today — it is a default, not a decision.
+
+| ID     | Needed by            | Question                                                                                                                                                                    | Current repo                                                                                                                                                                      | Status                                                       |
+| ------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **D2** | E3-S3, E9-S3         | May anyone review, or only tourists with a completed booking? Is moderation pre-publication or retroactive? Edit/delete window? One review per booking item or per listing? | `Review.bookingItemId @unique` → verified purchase, one review per item; `ReviewStatus.PENDING` → moderated before appearing                                                      | **open** — confirm pre-moderation and the edit window        |
+| **D3** | E2-S1/S2             | Multi-vendor checkout: fan-out to one PaymentIntent per vendor, or one platform charge + transfers?                                                                         | Card says multi-vendor → platform charge, transfers on confirmation; single-vendor → destination charge with `application_fee_amount`                                             | **partly decided** in E2-S2 card; confirm before E2-S1 holds |
+| **D4** | E5-S2, E3-S2, E10-S1 | Refund/cancellation policy bounds: default cancel window (hours), booking cutoff (hours), what percentage is refundable per window, who may override per product            | `Product.policy` JSON `{ cancelWindowHours, bookingCutoffHours }`; no values, no refundable-percentage field                                                                      | **open** — needs a platform default + validated bounds       |
+| **D5** | CR-5, E2-S1-01       | Commission resolution and rounding: platform default bps, category default, rounding of partial refunds                                                                     | `Category.commissionBpsDefault @default(1000)` (10%); `Vendor.commissionBpsOverride`; `BookingItem.commissionAmount = round(subtotal × bps / 10000)`, partial refund proportional | **open** — confirm platform default bps and rounding rule    |
+
+### 12.2 Events are not modelled
+
+There is no `Event` entity in `prisma/schema.prisma`; `/events` is currently a seeded **category** rendered from `lib/mock-data.ts`. Decide before E1-S1 whether "Events" means:
+
+1. a normal category of `Listing` (no schema change — recommended, cheapest, no new booking semantics), or
+2. a distinct entity with its own date/venue model (new `Event` table, new discovery and booking paths).
+
+Until that is decided, no task may add an `Event` model.
+
+### 12.3 Deferred / out of scope (reconfirmed)
+
+- `DATE_RANGE`, `TABLE`, `PASS` product kinds stay in the enum but have no UI or availability logic.
+- PostGIS stays deferred; bounding-box maths is done in SQL/JS.
+- Vendor team (E7) stays "Could".
