@@ -37,7 +37,7 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/vml_test
       JOBS_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vml_test
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vml_test
-      EMAIL_OUTBOX_DIR: ${{ runner.temp }}/email-outbox
+      EMAIL_OUTBOX_DIR: .tmp/email-outbox
       BETTER_AUTH_SECRET: ci-only-secret-not-used-in-production
       BETTER_AUTH_URL: http://localhost:3000
       NEXT_TELEMETRY_DISABLED: "1"
