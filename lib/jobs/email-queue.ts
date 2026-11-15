@@ -1,0 +1,48 @@
+import type { PgBoss } from "pg-boss"
+import type { EmailQueue } from "@/lib/email/queue"
+import type { EmailMessage } from "@/lib/email/types"
+import { emailSendJobSchema, QUEUES } from "./queues"
+
+export type EmailQueueOptions = {
+  retryLimit?: number
+  retryDelay?: number
+  retryBackoff?: boolean
+  expireInSeconds?: number
+}
+
+export const EMAIL_QUEUE_DEFAULTS: Required<EmailQueueOptions> = {
+  retryLimit: 5,
+  retryDelay: 60,
+  retryBackoff: true,
+  expireInSeconds: 300,
+}
+
+/**
+ * Durable email queue backed by pg-boss. The payload is validated on the way
+ * in and again in the worker, so a schema change cannot deliver half a message.
+ */
+export class PgBossEmailQueue implements EmailQueue {
+  constructor(
+    private readonly boss: Pick<PgBoss, "send">,
+    private readonly options: EmailQueueOptions = {}
+  ) {}
+
+  async enqueue(message: EmailMessage): Promise<string> {
+    const payload = emailSendJobSchema.parse(message)
+
+    const jobId = await this.boss.send(QUEUES.emailSend, payload, {
+      retryLimit: this.options.retryLimit ?? EMAIL_QUEUE_DEFAULTS.retryLimit,
+      retryDelay: this.options.retryDelay ?? EMAIL_QUEUE_DEFAULTS.retryDelay,
+      retryBackoff:
+        this.options.retryBackoff ?? EMAIL_QUEUE_DEFAULTS.retryBackoff,
+      expireInSeconds:
+        this.options.expireInSeconds ?? EMAIL_QUEUE_DEFAULTS.expireInSeconds,
+    })
+
+    if (!jobId) {
+      throw new Error("pg-boss did not return a job id for the email job")
+    }
+
+    return jobId
+  }
+}
