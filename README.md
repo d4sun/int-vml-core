@@ -8,15 +8,15 @@ This repository is one Next.js application with a single PostgreSQL database acc
 
 ## Tech stack
 
-| Area | Choice |
-| --- | --- |
-| Framework | Next.js 16 (App Router, React Server Components, Turbopack) |
-| UI | React 19.3, TypeScript (strict), Tailwind CSS v4, shadcn/ui (`base-nova`, built on `@base-ui/react`), `next-themes` |
-| Type | Urbanist (display/headings) + Geist / Geist Mono (body) via `next/font` |
-| Maps | `leaflet` + `react-leaflet` (OpenStreetMap tiles) |
-| Data | PostgreSQL 15+, Prisma 6 (`prisma-client-js` + `prisma migrate`) |
-| Auth | Better Auth — installed, **not configured yet** |
-| Tooling | pnpm, ESLint (`eslint-config-next`), Prettier (`prettier-plugin-tailwindcss`) |
+| Area      | Choice                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------- |
+| Framework | Next.js 16 (App Router, React Server Components, Turbopack)                                                         |
+| UI        | React 19.3, TypeScript (strict), Tailwind CSS v4, shadcn/ui (`base-nova`, built on `@base-ui/react`), `next-themes` |
+| Type      | Urbanist (display/headings) + Geist / Geist Mono (body) via `next/font`                                             |
+| Maps      | `leaflet` + `react-leaflet` (OpenStreetMap tiles)                                                                   |
+| Data      | PostgreSQL 15+, Prisma 6 (`prisma-client-js` + `prisma migrate`)                                                    |
+| Auth      | Better Auth — installed, **not configured yet**                                                                     |
+| Tooling   | pnpm, ESLint (`eslint-config-next`), Prettier (`prettier-plugin-tailwindcss`)                                       |
 
 ## Requirements
 
@@ -71,37 +71,37 @@ pnpm db:seed                # run prisma/seed.ts
 
 ## Environment variables
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `DATABASE_URL` | Yes | Pooled Postgres connection used by the running app. |
-| `DIRECT_URL` | Yes | Direct/session connection used by `prisma migrate`. |
-| `BETTER_AUTH_SECRET` | Later | Reserved for Better Auth; not read until auth is wired. |
+| Variable             | Required | Purpose                                                 |
+| -------------------- | -------- | ------------------------------------------------------- |
+| `DATABASE_URL`       | Yes      | Pooled Postgres connection used by the running app.     |
+| `DIRECT_URL`         | Yes      | Direct/session connection used by `prisma migrate`.     |
+| `BETTER_AUTH_SECRET` | Later    | Reserved for Better Auth; not read until auth is wired. |
 
 `.env` files are gitignored. Storing secrets in them is fine for local development; production secrets belong in the deploy platform.
 
 ## Available scripts
 
-| Command | What it does |
-| --- | --- |
-| `pnpm dev` | Start the Next.js dev server. |
-| `pnpm build` | Production build. |
-| `pnpm start` | Serve the production build. |
-| `pnpm lint` | Run ESLint. |
-| `pnpm typecheck` | Run `tsc --noEmit`. |
-| `pnpm format` | Format `.ts` / `.tsx` files with Prettier. |
-| `pnpm prisma:generate` | Generate the Prisma client. |
-| `pnpm prisma:migrate` | Create/apply a Prisma migration (dev). |
-| `pnpm prisma:studio` | Open Prisma Studio. |
-| `pnpm db:seed` | Seed the development database. |
+| Command                | What it does                               |
+| ---------------------- | ------------------------------------------ |
+| `pnpm dev`             | Start the Next.js dev server.              |
+| `pnpm build`           | Production build.                          |
+| `pnpm start`           | Serve the production build.                |
+| `pnpm lint`            | Run ESLint.                                |
+| `pnpm typecheck`       | Run `tsc --noEmit`.                        |
+| `pnpm format`          | Format `.ts` / `.tsx` files with Prettier. |
+| `pnpm prisma:generate` | Generate the Prisma client.                |
+| `pnpm prisma:migrate`  | Create/apply a Prisma migration (dev).     |
+| `pnpm prisma:studio`   | Open Prisma Studio.                        |
+| `pnpm db:seed`         | Seed the development database.             |
 
 ## Routes
 
-| Route | File | Description |
-| --- | --- | --- |
-| `/` | `app/page.tsx` | Home page: hero, category tiles, top attractions, areas, musicals, video band, newsletter. |
-| `/[category]` | `app/(www)/[category]/page.tsx` | Category template, statically generated for every key in `CATEGORY_CONFIG`: `explore`, `attractions`, `tours`, `events`, `food-drink`, `nightlife`, `shopping`, `royal-london`, `arts-culture`, `music`, `stay`, `transport`. |
-| `/listing/[slug]` | `app/(www)/listing/[slug]/page.tsx` | Listing detail: gallery, highlights, what's included, visitor guide, reviews, OSM map, sticky booking rail. |
-| `/event/[slug]` | `app/(www)/event/[slug]/page.tsx` | Event detail: gallery, overview/location tabs, what's included, map. |
+| Route             | File                                | Description                                                                                                                                                                                                                   |
+| ----------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`               | `app/page.tsx`                      | Home page: hero, category tiles, top attractions, areas, musicals, video band, newsletter.                                                                                                                                    |
+| `/[category]`     | `app/(www)/[category]/page.tsx`     | Category template, statically generated for every key in `CATEGORY_CONFIG`: `explore`, `attractions`, `tours`, `events`, `food-drink`, `nightlife`, `shopping`, `royal-london`, `arts-culture`, `music`, `stay`, `transport`. |
+| `/listing/[slug]` | `app/(www)/listing/[slug]/page.tsx` | Listing detail: gallery, highlights, what's included, visitor guide, reviews, OSM map, sticky booking rail.                                                                                                                   |
+| `/event/[slug]`   | `app/(www)/event/[slug]/page.tsx`   | Event detail: gallery, overview/location tabs, what's included, map.                                                                                                                                                          |
 
 All of the above currently render **mock content** from [`lib/mock-data.ts`](lib/mock-data.ts) (listing/event detail copy is inline in their route files). Routes for auth, trips, bookings, vendor and admin are planned but do not exist yet.
 
@@ -188,7 +188,7 @@ Commit and PR conventions are in [CONTRIBUTING.md](CONTRIBUTING.md).
 Background work runs on pg-boss, in a separate worker process:
 
 ```bash
-pnpm worker        # consumes jobs; requires EMAIL_OUTBOX_DIR until Resend lands
+pnpm worker        # consumes jobs; sends via Brevo when BREVO_API_KEY is set
 pnpm jobs:plans    # prints the pg-boss schema SQL committed as a migration
 ```
 
@@ -196,14 +196,20 @@ The pg-boss schema lives in `prisma/migrations/*_pg_boss` and is applied by
 `prisma migrate deploy`. Runtime instances run with `migrate: false`, so no DDL
 happens at boot and the database role does not need `CREATE` privileges.
 
+Email goes through the `EmailSender` contract (`lib/email/types.ts`). The worker
+uses Brevo when `BREVO_API_KEY` and `EMAIL_FROM` are set; otherwise — in dev and
+tests only — it appends messages to `EMAIL_OUTBOX_DIR/outbox.jsonl` so they can
+be inspected without a provider account. Production fails fast if no transport
+is configured rather than dropping mail silently.
+
 ## Documentation
 
-| Document | Contents |
-| --- | --- |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, Conventional Commits, PR checklist. |
-| [docs/WEBAPP_IMPLEMENTATION_PLAN.md](docs/WEBAPP_IMPLEMENTATION_PLAN.md) | Architecture, surfaces, conventions, build sequence, definition of done. |
-| [docs/DESIGN_GUIDELINES.md](docs/DESIGN_GUIDELINES.md) | Brand foundations, layout system, component inventory, accessibility baseline. |
-| [AGENTS.md](AGENTS.md) | Agent rules — notably that this Next.js version differs from older training data; read `node_modules/next/dist/docs/` before framework-level work. |
+| Document                                                                 | Contents                                                                                                                                           |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                       | Setup, Conventional Commits, PR checklist.                                                                                                         |
+| [docs/WEBAPP_IMPLEMENTATION_PLAN.md](docs/WEBAPP_IMPLEMENTATION_PLAN.md) | Architecture, surfaces, conventions, build sequence, definition of done.                                                                           |
+| [docs/DESIGN_GUIDELINES.md](docs/DESIGN_GUIDELINES.md)                   | Brand foundations, layout system, component inventory, accessibility baseline.                                                                     |
+| [AGENTS.md](AGENTS.md)                                                   | Agent rules — notably that this Next.js version differs from older training data; read `node_modules/next/dist/docs/` before framework-level work. |
 
 ## What's next
 
