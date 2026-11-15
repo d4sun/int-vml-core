@@ -1,6 +1,6 @@
 # VisitMyLondon — Agent Task Backlog (Build Runbook)
 
-*A single, ordered, agent-executable backlog for the VML MVP business logic: use case diagram, EER, epics → user stories → tasks → subtasks, the tests for every task, and the git/PR protocol each task follows. It operationalises **VML Business Logic Implementation Plan** (rules, rationale) and sits under the **MVP Implementation Plan** and **Web App Implementation Plan** (architecture, stack).*
+_A single, ordered, agent-executable backlog for the VML MVP business logic: use case diagram, EER, epics → user stories → tasks → subtasks, the tests for every task, and the git/PR protocol each task follows. It operationalises **VML Business Logic Implementation Plan** (rules, rationale) and sits under the **MVP Implementation Plan** and **Web App Implementation Plan** (architecture, stack)._
 
 **Repo:** `int-vml-core` (`github.com/d4sun/int-vml-core`) · **Integration branch:** `develop` · **Stack:** Next.js 16 (App Router) · React 19 · TypeScript strict · pnpm · Prisma 6 (classic) · Better Auth · Postgres · Stripe Connect · pg-boss · Resend · Vitest · Playwright
 
@@ -14,7 +14,7 @@
 4. Execute the protocol: **branch → implement → write tests → verify → PR to `develop`**.
 5. Tick the task's checkbox (in the same PR), record any deviation in **§11 Deviations log**, stop, and report. Do not start the next task unless told to.
 
-Everything an agent needs to decide *what* to build is in §2–§7 (rules, model, tests). Everything about *how to work* is in §1 and §10.
+Everything an agent needs to decide _what_ to build is in §2–§7 (rules, model, tests). Everything about _how to work_ is in §1 and §10.
 
 **Status legend:** `[ ]` todo · `[~]` implemented, PR not yet raised/merged · `[x]` merged to `develop`
 
@@ -23,6 +23,7 @@ Everything an agent needs to decide *what* to build is in §2–§7 (rules, mode
 ## 1. Task Protocol (applies to every task, no exceptions)
 
 ### 1.1 Branching
+
 - One **task = one branch = one PR**. Never mix tasks.
 - Branch name: `feat/<task-id-lowercase>-<slug>`, e.g. `feat/e0-s2-03-password-reset`. Use `fix/`, `chore/`, `test/` prefixes only for non-feature tasks.
 - Always branch from an up-to-date `develop`:
@@ -35,16 +36,19 @@ Everything an agent needs to decide *what* to build is in §2–§7 (rules, mode
 - **Stacking:** if the task depends on a task whose PR is not merged yet, branch from that task's branch instead and write `Stacked on #<PR>` in the PR body. The PR still targets `develop`.
 
 ### 1.2 Implementation order inside a task
+
 `schema/migration → zod schema → service (all business logic) → route handler / server action → UI → tests`.
 Services own logic; UI and routes are thin. Respect cross-cutting rules **CR-1..CR-9** (§3).
 
 ### 1.3 Tests are part of the task, not a follow-up
+
 - Every task card lists required tests. Write them **in the same branch**.
 - Test layers: **U** unit (pure logic, no DB) · **I** integration (real Postgres) · **E** e2e (Playwright). A task card says which layers apply.
 - A task is not done until its listed TC / IT / E2E IDs exist as tests (put the ID in the test title, e.g. `it("TC-E0S2-03: reset token is single-use", …)`).
 - Mutation sanity check: for every access/gating rule, confirm the test fails if the rule is removed.
 
 ### 1.4 Verify (all must pass before raising the PR)
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm exec prisma generate
@@ -56,9 +60,11 @@ TEST_DATABASE_URL=postgresql://…/vml_test pnpm test      # unit + integration
 pnpm test:e2e                                             # only if the task card lists E2E
 pnpm build                                                # `next build`
 ```
+
 Also: no secrets committed; `.env.example` updated if a new env var was added; no `console.log` left; no change to unrelated files.
 
 ### 1.5 Commit, push, PR
+
 - **Commit message:** Conventional Commits, one commit per task (squash locally if needed):
   `feat(<scope>): <summary> (<TASK-ID>)` — e.g. `feat(auth): password reset flow (E0-S2-03)`.
   **Do not append `Co-Authored-By`, `Claude-Session` or any attribution trailer** to commits or PR bodies (owner's instruction).
@@ -74,28 +80,36 @@ Also: no secrets committed; `.env.example` updated if a new env var was added; n
 - If `gh` or push fails (auth, protected branch), stop and report the exact error; do not work around it.
 
 ### 1.6 PR template
+
 ```markdown
 ## Task
-<TASK-ID> — <title>   (Story <story id>, Epic <epic id>)
+
+<TASK-ID> — <title> (Story <story id>, Epic <epic id>)
 
 ## What changed
+
 - …
 
 ## Tests
+
 - Added: <TC/IT/E2E IDs>
 - Results: unit <n>/<n>, integration <n>/<n>, e2e <n>/<n>
 
 ## Verification
+
 - [ ] tsc · [ ] eslint · [ ] prettier · [ ] tests · [ ] build · [ ] migrate status (if schema)
 
 ## Notes / deviations
+
 - (also logged in docs backlog §11)
 
 ## Follow-ups
+
 - …
 ```
 
 ### 1.7 Definition of Done (task)
+
 Branch from fresh `develop` · task deliverables complete · listed tests written and green · all §1.4 checks green · backlog checkbox ticked · deviations logged · PR raised to `develop`.
 
 ---
@@ -386,25 +400,28 @@ flowchart TB
 Booking/checkout/webhook/refund code depends only on the `AvailabilityModule` interface (`check`, `hold`, `commit`, `release`, `restock`). Each subtype implements it. Never branch on `kind` in checkout.
 
 ### 4.3 Entity classification
-| Entity | Kind | Identified by |
-|---|---|---|
-| User, Vendor, Category, Listing, Product, Booking, Review, Trip, WebhookEvent, AuditLog, Dispute | strong | `id` (WebhookEvent: `stripeEventId`) |
-| VendorMember | associative (User × Vendor) | (`userId`,`vendorId`) |
-| ListingImage, Availability, Hold, BookingItem, Payment, Transfer, Refund, TripItem | weak | owner + discriminator |
-| Session, Account, Verification, RateLimit | Better Auth support | `id` |
-| Category | recursive | `parentId` |
+
+| Entity                                                                                           | Kind                        | Identified by                        |
+| ------------------------------------------------------------------------------------------------ | --------------------------- | ------------------------------------ |
+| User, Vendor, Category, Listing, Product, Booking, Review, Trip, WebhookEvent, AuditLog, Dispute | strong                      | `id` (WebhookEvent: `stripeEventId`) |
+| VendorMember                                                                                     | associative (User × Vendor) | (`userId`,`vendorId`)                |
+| ListingImage, Availability, Hold, BookingItem, Payment, Transfer, Refund, TripItem               | weak                        | owner + discriminator                |
+| Session, Account, Verification, RateLimit                                                        | Better Auth support         | `id`                                 |
+| Category                                                                                         | recursive                   | `parentId`                           |
 
 ### 4.4 Derived attributes (each needs a test)
-| Derived | Formula |
-|---|---|
-| `Availability.remaining` | `capacity − Σ confirmed qty − Σ active hold qty` (inside row-locked TX) |
-| `BookingItem.subtotal` | `unitPrice × quantity` |
-| `BookingItem.commissionAmount` | `round(subtotal × resolvedBps / 10000)` |
-| `Booking.total` | `Σ BookingItem.subtotal` |
-| `Payment.applicationFeeAmount` | `Σ commissionAmount` (single-vendor destination charge) |
-| partial-refund commission | `commissionAmount × (refundAmount / subtotal)`, rounded |
+
+| Derived                        | Formula                                                                 |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `Availability.remaining`       | `capacity − Σ confirmed qty − Σ active hold qty` (inside row-locked TX) |
+| `BookingItem.subtotal`         | `unitPrice × quantity`                                                  |
+| `BookingItem.commissionAmount` | `round(subtotal × resolvedBps / 10000)`                                 |
+| `Booking.total`                | `Σ BookingItem.subtotal`                                                |
+| `Payment.applicationFeeAmount` | `Σ commissionAmount` (single-vendor destination charge)                 |
+| partial-refund commission      | `commissionAmount × (refundAmount / subtotal)`, rounded                 |
 
 ### 4.5 Cross-entity constraints (service-enforced; each has an IT-)
+
 1. `BookingItem.vendorId` = product→listing→vendor, set server-side only.
 2. `Transfer` only if vendor `APPROVED && stripeOnboardingComplete`.
 3. `Listing → PUBLISHED` only if vendor `APPROVED`; bookable only if also onboarded.
@@ -414,50 +431,51 @@ Booking/checkout/webhook/refund code depends only on the `AvailabilityModule` in
 7. No `WebhookEvent.stripeEventId` processed twice; Stripe writes carry idempotency keys.
 
 ### 4.6 Schema change ledger (which task introduces what)
-| Entity/change | Introduced by |
-|---|---|
+
+| Entity/change                                                   | Introduced by                                                                     |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Session, Account, Verification, RateLimit; `User.name` NOT NULL | **E0-S1-02** (done, hand-written migration `20261115040000_better_auth_identity`) |
-| `AuditLog` | E8-S1-01 |
-| `Dispute` | E10-S2-03 |
-| FTS `tsvector` + GIN index on Listing | E1-S1-01 |
-| Everything else | already in `20261108044754_init` |
+| `AuditLog`                                                      | E8-S1-01                                                                          |
+| `Dispute`                                                       | E10-S2-03                                                                         |
+| FTS `tsvector` + GIN index on Listing                           | E1-S1-01                                                                          |
+| Everything else                                                 | already in `20261108044754_init`                                                  |
 
 ---
 
 ## 5. Testing conventions
 
-| Aspect | Convention |
-|---|---|
-| Runner | Vitest 5, projects `unit` and `integration`; Playwright for e2e |
-| Layout | `tests/unit/*.test.ts`, `tests/integration/*.test.ts`, `tests/e2e/*.spec.ts`, helpers in `tests/helpers`, `tests/e2e/support.ts` |
-| Naming | test titles start with their ID: `TC-E0S2-03: …`, `IT-08: …`, `E2E-01: …` |
-| DB | `TEST_DATABASE_URL` required; the DB name **must contain `test`** (helper refuses otherwise). Integration tests migrate/reset and clean per file. |
-| Auth/email | `makeHarness()` (tests/helpers/auth-harness) builds Better Auth against the test DB with a `RecordingEmailQueue`; e2e reads mail from `EMAIL_OUTBOX_DIR` via `FileEmailSender` (dev/test only, refused in production) |
-| Rate limits | each test uses its own `x-forwarded-for` IP (`freshIp()` / `uniqueIp()`) so tests don't throttle each other |
-| Time | use fake timers / injectable clock; never `sleep` for expiry |
-| Stripe | an `StripeAdapter` interface with a **fake** (unit/integration) and **real test-mode** implementation (smoke + e2e). Webhook tests feed signed fixture payloads. |
-| Money | assert exact integer pence; add a property-style test where rounding exists |
-| Gates | every authorization/state-gate has a negative test (and is mutation-checked) |
-| Coverage | `@vitest/coverage-v8`; target ≥ 85 % on `lib/**/service*` and money code, not enforced on UI |
-| Scripts | `pnpm test`, `test:unit`, `test:integration`, `test:e2e` |
+| Aspect      | Convention                                                                                                                                                                                                            |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runner      | Vitest 5, projects `unit` and `integration`; Playwright for e2e                                                                                                                                                       |
+| Layout      | `tests/unit/*.test.ts`, `tests/integration/*.test.ts`, `tests/e2e/*.spec.ts`, helpers in `tests/helpers`, `tests/e2e/support.ts`                                                                                      |
+| Naming      | test titles start with their ID: `TC-E0S2-03: …`, `IT-08: …`, `E2E-01: …`                                                                                                                                             |
+| DB          | `TEST_DATABASE_URL` required; the DB name **must contain `test`** (helper refuses otherwise). Integration tests migrate/reset and clean per file.                                                                     |
+| Auth/email  | `makeHarness()` (tests/helpers/auth-harness) builds Better Auth against the test DB with a `RecordingEmailQueue`; e2e reads mail from `EMAIL_OUTBOX_DIR` via `FileEmailSender` (dev/test only, refused in production) |
+| Rate limits | each test uses its own `x-forwarded-for` IP (`freshIp()` / `uniqueIp()`) so tests don't throttle each other                                                                                                           |
+| Time        | use fake timers / injectable clock; never `sleep` for expiry                                                                                                                                                          |
+| Stripe      | an `StripeAdapter` interface with a **fake** (unit/integration) and **real test-mode** implementation (smoke + e2e). Webhook tests feed signed fixture payloads.                                                      |
+| Money       | assert exact integer pence; add a property-style test where rounding exists                                                                                                                                           |
+| Gates       | every authorization/state-gate has a negative test (and is mutation-checked)                                                                                                                                          |
+| Coverage    | `@vitest/coverage-v8`; target ≥ 85 % on `lib/**/service*` and money code, not enforced on UI                                                                                                                          |
+| Scripts     | `pnpm test`, `test:unit`, `test:integration`, `test:e2e`                                                                                                                                                              |
 
 ---
 
 ## 6. Epic index
 
-| Epic | Name | User type | Stories | Depends on |
-|---|---|---|---|---|
-| BL-E0 | Identity, Auth, RBAC & platform foundations | shared | S0–S3 | — |
-| BL-E8 | Vendor governance | Admin | S1 | E0 |
-| BL-E4 | Vendor onboarding & payout readiness | Vendor | S1–S2 | E0, E8-S1 |
-| BL-E9 | Moderation & taxonomy | Admin | S1–S3 | E5 (S2 first), E3-S3 for S3 |
-| BL-E5 | Catalog, products & availability | Vendor | S1–S2 | E4, E9-S2 |
-| BL-E1 | Discovery & trip planning | Tourist | S1–S2 | E5, E9-S1 |
-| BL-E2 | Cart, checkout & payment (flagship) | Tourist | S1–S3 | E4, E5 |
-| BL-E6 | Vendor booking ops & payouts | Vendor | S1–S2 | E2 |
-| BL-E10 | Financial oversight, refunds & disputes | Admin | S1–S2 | E2 |
-| BL-E3 | Bookings, cancellation & reviews | Tourist | S1–S3 | E2, E6-S1, E10-S1 (for S2) |
-| BL-E7 | Vendor team (Could) | Vendor | S1 | E0 |
+| Epic   | Name                                        | User type | Stories | Depends on                  |
+| ------ | ------------------------------------------- | --------- | ------- | --------------------------- |
+| BL-E0  | Identity, Auth, RBAC & platform foundations | shared    | S0–S3   | —                           |
+| BL-E8  | Vendor governance                           | Admin     | S1      | E0                          |
+| BL-E4  | Vendor onboarding & payout readiness        | Vendor    | S1–S2   | E0, E8-S1                   |
+| BL-E9  | Moderation & taxonomy                       | Admin     | S1–S3   | E5 (S2 first), E3-S3 for S3 |
+| BL-E5  | Catalog, products & availability            | Vendor    | S1–S2   | E4, E9-S2                   |
+| BL-E1  | Discovery & trip planning                   | Tourist   | S1–S2   | E5, E9-S1                   |
+| BL-E2  | Cart, checkout & payment (flagship)         | Tourist   | S1–S3   | E4, E5                      |
+| BL-E6  | Vendor booking ops & payouts                | Vendor    | S1–S2   | E2                          |
+| BL-E10 | Financial oversight, refunds & disputes     | Admin     | S1–S2   | E2                          |
+| BL-E3  | Bookings, cancellation & reviews            | Tourist   | S1–S3   | E2, E6-S1, E10-S1 (for S2)  |
+| BL-E7  | Vendor team (Could)                         | Vendor    | S1      | E0                          |
 
 **Critical path:** E0 → E8-S1 → E4 → E9-S2 → E5 → E2 → E10-S1 → E3-S2.
 
@@ -466,41 +484,43 @@ Booking/checkout/webhook/refund code depends only on the `AvailabilityModule` in
 ## 7. Integration & E2E test catalogue (referenced by task cards)
 
 ### 7.1 Integration tests (real Postgres; Stripe fake or test mode)
-| ID | Scenario | Pass condition |
-|---|---|---|
-| IT-01 | Two concurrent holds on last unit | exactly one succeeds; `remaining=0`, never negative |
-| IT-02 | Hold TTL elapses | capacity returns; booking can't confirm on it |
-| IT-03 | Hold→commit TX | atomic permanent decrement, no double-count |
-| IT-04 | Booking+items TX, item insert fails | full rollback, no orphans |
-| IT-05 | Commission resolution | override / category / platform chosen correctly |
-| IT-06 | Single-vendor charge confirm | destination charge, `fee = Σ commission` |
-| IT-07 | Multi-vendor settle | one Payment, one Transfer per vendor, `subtotal − commission` |
-| IT-08 | Same `stripeEventId` twice | processed once |
-| IT-09 | `succeeded` before redirect | state correct regardless |
-| IT-10 | PENDING past TTL | cancelled, holds released |
-| IT-11 | Full refund + reversal webhook | Refund row, item REFUNDED, reversal recorded, restocked |
-| IT-12 | 50 % partial refund | proportional refund/reversal/commission |
-| IT-13 | One of two transfers fails | booking paid; failure flagged; reconciliation retries |
-| IT-14 | Publish by non-onboarded vendor | rejected at service |
-| IT-15 | Transfer to non-onboarded vendor | no transfer created |
-| IT-16 | Review on non-fulfilled item / duplicate | rejected; unique per item |
-| IT-17 | Suspended vendor / unpublished listing | excluded from search |
-| IT-18 | Vendor A reads vendor B data | denied |
-| IT-19 | `BookingItem.vendorId` vs product owner | always equal; client value ignored |
-| IT-20 | Any amount path | integer pence; no float drift |
+
+| ID    | Scenario                                 | Pass condition                                                |
+| ----- | ---------------------------------------- | ------------------------------------------------------------- |
+| IT-01 | Two concurrent holds on last unit        | exactly one succeeds; `remaining=0`, never negative           |
+| IT-02 | Hold TTL elapses                         | capacity returns; booking can't confirm on it                 |
+| IT-03 | Hold→commit TX                           | atomic permanent decrement, no double-count                   |
+| IT-04 | Booking+items TX, item insert fails      | full rollback, no orphans                                     |
+| IT-05 | Commission resolution                    | override / category / platform chosen correctly               |
+| IT-06 | Single-vendor charge confirm             | destination charge, `fee = Σ commission`                      |
+| IT-07 | Multi-vendor settle                      | one Payment, one Transfer per vendor, `subtotal − commission` |
+| IT-08 | Same `stripeEventId` twice               | processed once                                                |
+| IT-09 | `succeeded` before redirect              | state correct regardless                                      |
+| IT-10 | PENDING past TTL                         | cancelled, holds released                                     |
+| IT-11 | Full refund + reversal webhook           | Refund row, item REFUNDED, reversal recorded, restocked       |
+| IT-12 | 50 % partial refund                      | proportional refund/reversal/commission                       |
+| IT-13 | One of two transfers fails               | booking paid; failure flagged; reconciliation retries         |
+| IT-14 | Publish by non-onboarded vendor          | rejected at service                                           |
+| IT-15 | Transfer to non-onboarded vendor         | no transfer created                                           |
+| IT-16 | Review on non-fulfilled item / duplicate | rejected; unique per item                                     |
+| IT-17 | Suspended vendor / unpublished listing   | excluded from search                                          |
+| IT-18 | Vendor A reads vendor B data             | denied                                                        |
+| IT-19 | `BookingItem.vendorId` vs product owner  | always equal; client value ignored                            |
+| IT-20 | Any amount path                          | integer pence; no float drift                                 |
 
 ### 7.2 E2E journeys (Playwright)
-| ID | Journey | Assert |
-|---|---|---|
-| E2E-01 | Tourist happy path: register → verify → search → add slot → checkout → pay → confirmation | booking CONFIRMED, email queued, appears in "my bookings" |
-| E2E-02 | Multi-vendor checkout *(flagship)* | one payment; both vendors have a transfer; fee retained |
-| E2E-03 | Vendor onboarding → publish | PUBLISHED only after admin approval; publish blocked pre-onboarding |
-| E2E-04 | Admin governance: approve vendor → moderate listing → partial refund | ledger shows refund + reversal |
-| E2E-05 | Cancellation within policy | refund path runs; capacity restored |
-| E2E-06 | Review after fulfilment | visible only after admin approval |
-| E2E-07 | RBAC negative: tourist opens `/vendor`, `/admin` | redirected/denied; no data |
-| E2E-08 | Two tourists race the last slot | one confirms, other sees "just sold out" |
-| E2E-09 | Webhook-authoritative confirm (drop redirect) | booking confirms via webhook |
+
+| ID     | Journey                                                                                   | Assert                                                              |
+| ------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| E2E-01 | Tourist happy path: register → verify → search → add slot → checkout → pay → confirmation | booking CONFIRMED, email queued, appears in "my bookings"           |
+| E2E-02 | Multi-vendor checkout _(flagship)_                                                        | one payment; both vendors have a transfer; fee retained             |
+| E2E-03 | Vendor onboarding → publish                                                               | PUBLISHED only after admin approval; publish blocked pre-onboarding |
+| E2E-04 | Admin governance: approve vendor → moderate listing → partial refund                      | ledger shows refund + reversal                                      |
+| E2E-05 | Cancellation within policy                                                                | refund path runs; capacity restored                                 |
+| E2E-06 | Review after fulfilment                                                                   | visible only after admin approval                                   |
+| E2E-07 | RBAC negative: tourist opens `/vendor`, `/admin`                                          | redirected/denied; no data                                          |
+| E2E-08 | Two tourists race the last slot                                                           | one confirms, other sees "just sold out"                            |
+| E2E-09 | Webhook-authoritative confirm (drop redirect)                                             | booking confirms via webhook                                        |
 
 The auth e2e suite for E0-S1 already exists (`tests/e2e/register-verify.spec.ts`, 8 tests); the numbered journeys above are built up as their stories land (see task cards), and **T-X-01** closes any that remain.
 
@@ -510,97 +530,101 @@ The auth e2e suite for E0-S1 already exists (`tests/e2e/register-verify.spec.ts`
 
 Pick the first unchecked story whose dependencies are `[x]`; work its tasks top-to-bottom (§9).
 
-| # | Story | Name | Status |
-|---|---|---|---|
-| 1 | E0-S0 | Platform foundations (jobs, CI, errors) | [ ] |
-| 2 | E0-S1 | Register & verify email | [~] |
-| 3 | E0-S2 | Sign in, reset password, profile | [ ] |
-| 4 | E0-S3 | RBAC guards & route protection | [ ] |
-| 5 | E8-S1 | Approve / reject / suspend vendors | [ ] |
-| 6 | E4-S1 | Apply to become a vendor | [ ] |
-| 7 | E4-S2 | Stripe Connect Express onboarding | [ ] |
-| 8 | E9-S2 | Manage categories / taxonomy | [ ] |
-| 9 | E5-S1 | Manage listings & images | [ ] |
-| 10 | E5-S2 | Manage products & timed-slot availability | [ ] |
-| 11 | E9-S1 | Moderate listings | [ ] |
-| 12 | E1-S1 | Search, filter & map | [ ] |
-| 13 | E2-S1 | Add to cart with soft hold | [ ] |
-| 14 | E2-S2 | Checkout, booking & Stripe charge | [ ] |
-| 15 | E2-S3 | Webhook confirmation & lifecycle | [ ] |
-| 16 | E1-S2 | Save to trip & itinerary | [ ] |
-| 17 | E6-S1 | Manage incoming bookings | [ ] |
-| 18 | E3-S1 | View my bookings | [ ] |
-| 19 | E10-S1 | Refund + transfer reversal | [ ] |
-| 20 | E3-S2 | Cancel within policy | [ ] |
-| 21 | E6-S2 | Earnings & payout status | [ ] |
-| 22 | E3-S3 | Leave a review | [ ] |
-| 23 | E9-S3 | Moderate reviews | [ ] |
-| 24 | E10-S2 | Oversight, reconciliation, disputes, metrics | [ ] |
-| 25 | E7-S1 | Vendor team (Could) | [ ] |
-| 26 | X | Remaining e2e journeys & hardening | [ ] |
+| #   | Story  | Name                                         | Status |
+| --- | ------ | -------------------------------------------- | ------ |
+| 1   | E0-S0  | Platform foundations (jobs, CI, errors)      | [ ]    |
+| 2   | E0-S1  | Register & verify email                      | [~]    |
+| 3   | E0-S2  | Sign in, reset password, profile             | [ ]    |
+| 4   | E0-S3  | RBAC guards & route protection               | [ ]    |
+| 5   | E8-S1  | Approve / reject / suspend vendors           | [ ]    |
+| 6   | E4-S1  | Apply to become a vendor                     | [ ]    |
+| 7   | E4-S2  | Stripe Connect Express onboarding            | [ ]    |
+| 8   | E9-S2  | Manage categories / taxonomy                 | [ ]    |
+| 9   | E5-S1  | Manage listings & images                     | [ ]    |
+| 10  | E5-S2  | Manage products & timed-slot availability    | [ ]    |
+| 11  | E9-S1  | Moderate listings                            | [ ]    |
+| 12  | E1-S1  | Search, filter & map                         | [ ]    |
+| 13  | E2-S1  | Add to cart with soft hold                   | [ ]    |
+| 14  | E2-S2  | Checkout, booking & Stripe charge            | [ ]    |
+| 15  | E2-S3  | Webhook confirmation & lifecycle             | [ ]    |
+| 16  | E1-S2  | Save to trip & itinerary                     | [ ]    |
+| 17  | E6-S1  | Manage incoming bookings                     | [ ]    |
+| 18  | E3-S1  | View my bookings                             | [ ]    |
+| 19  | E10-S1 | Refund + transfer reversal                   | [ ]    |
+| 20  | E3-S2  | Cancel within policy                         | [ ]    |
+| 21  | E6-S2  | Earnings & payout status                     | [ ]    |
+| 22  | E3-S3  | Leave a review                               | [ ]    |
+| 23  | E9-S3  | Moderate reviews                             | [ ]    |
+| 24  | E10-S2 | Oversight, reconciliation, disputes, metrics | [ ]    |
+| 25  | E7-S1  | Vendor team (Could)                          | [ ]    |
+| 26  | X      | Remaining e2e journeys & hardening           | [ ]    |
 
 ---
 
 ## 9. Backlog (epics → stories → tasks)
 
-> Card format: **Task ID** · deliverables · tests · *done-when*. Branch = `feat/<id>-<slug>` (§1.1). Every card implicitly includes the full §1 protocol.
+> Card format: **Task ID** · deliverables · tests · _done-when_. Branch = `feat/<id>-<slug>` (§1.1). Every card implicitly includes the full §1 protocol.
 
 ---
 
 ### BL-E0 — Identity, Auth, RBAC & platform foundations
 
-#### E0-S0 — Platform foundations *(enabler)*
-*As the team, we want shared infrastructure so every later story is built on durable jobs, consistent errors and CI.*
+#### E0-S0 — Platform foundations _(enabler)_
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
+_As the team, we want shared infrastructure so every later story is built on durable jobs, consistent errors and CI._
+
+| Task                                    | Deliverables                                                                                                                                                                         | Tests                                                                                                                           | Done-when                                                              |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | **E0-S0-01** pg-boss job infrastructure | `lib/jobs/{boss,queues,register}.ts`; worker bootstrap; migrate pg-boss schema; replace `InProcessEmailQueue` with a pg-boss-backed `EmailQueue` (same interface), retries + backoff | U: queue contract tests run against both impls. I: enqueued email job is delivered once, retried on failure, survives a restart | email sends are durable; `InProcessEmailQueue` only used in unit tests |
-| **E0-S0-02** Service conventions | `lib/errors.ts` (`AppError`, `NotFound`, `Forbidden`, `Conflict`, `ValidationError`), `lib/result.ts`, action wrapper mapping errors → HTTP/UI | U: mapping table | all services throw typed errors |
-| **E0-S0-03** CI workflow | `.github/workflows/ci.yml`: install, prisma generate, tsc, eslint, prettier, Postgres service, unit+integration, build; e2e job (Playwright) on PR | CI run green on a trivial PR | PRs show required checks |
+| **E0-S0-02** Service conventions        | `lib/errors.ts` (`AppError`, `NotFound`, `Forbidden`, `Conflict`, `ValidationError`), `lib/result.ts`, action wrapper mapping errors → HTTP/UI                                       | U: mapping table                                                                                                                | all services throw typed errors                                        |
+| **E0-S0-03** CI workflow                | `.github/workflows/ci.yml`: install, prisma generate, tsc, eslint, prettier, Postgres service, unit+integration, build; e2e job (Playwright) on PR                                   | CI run green on a trivial PR                                                                                                    | PRs show required checks                                               |
 
-#### E0-S1 — Register & verify email  *(UC-01)* — **implemented; status `[~]`**
-*As a Guest, I want to create an account and confirm my email so that I can book and the platform can trust my identity.*
+#### E0-S1 — Register & verify email _(UC-01)_ — **implemented; status `[~]`**
+
+_As a Guest, I want to create an account and confirm my email so that I can book and the platform can trust my identity._
 
 **Acceptance:** valid registration creates `User(TOURIST, emailVerified=false)` + verification token and enqueues one email · valid token verifies + signs in · weak password rejected server-side · duplicate email → generic response, no second row (CR-9) · register/resend rate-limited (CR-8).
 
-| Task | Deliverables | Tests | State |
-|---|---|---|---|
-| E0-S1-01 Shared validation | `lib/validation/auth.ts` (`registerSchema`, password policy min 8/max 128, ≥1 letter, ≥1 digit) | U | [~] |
-| E0-S1-02 Better Auth + Prisma identity | `lib/auth/config.ts`, `lib/auth.ts`, `lib/auth-client.ts`, route `app/api/auth/[...all]`, migration `20261115040000_better_auth_identity` | I | [~] |
-| E0-S1-03 Email layer | `lib/email/*` (templates, Resend, File, Console, interim in-process queue), `lib/env.ts` | U | [~] |
-| E0-S1-04 Verification flow | verify callback `/verify-email/complete`, resend verification, expiry (1h) | I | [~] |
-| E0-S1-05 UI | `/register`, `/verify-email/complete`, `components/auth/*` | E | [~] |
-| E0-S1-06 Rate limits | `/sign-up/email` 5/min, `/send-verification-email` 3/min (Postgres-backed) | I | [~] |
-| E0-S1-07 Tests | 77 Vitest (45 unit + 32 integration) + 8 Playwright | all | [~] |
+| Task                                   | Deliverables                                                                                                                              | Tests | State |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| E0-S1-01 Shared validation             | `lib/validation/auth.ts` (`registerSchema`, password policy min 8/max 128, ≥1 letter, ≥1 digit)                                           | U     | [~]   |
+| E0-S1-02 Better Auth + Prisma identity | `lib/auth/config.ts`, `lib/auth.ts`, `lib/auth-client.ts`, route `app/api/auth/[...all]`, migration `20261115040000_better_auth_identity` | I     | [~]   |
+| E0-S1-03 Email layer                   | `lib/email/*` (templates, Resend, File, Console, interim in-process queue), `lib/env.ts`                                                  | U     | [~]   |
+| E0-S1-04 Verification flow             | verify callback `/verify-email/complete`, resend verification, expiry (1h)                                                                | I     | [~]   |
+| E0-S1-05 UI                            | `/register`, `/verify-email/complete`, `components/auth/*`                                                                                | E     | [~]   |
+| E0-S1-06 Rate limits                   | `/sign-up/email` 5/min, `/send-verification-email` 3/min (Postgres-backed)                                                                | I     | [~]   |
+| E0-S1-07 Tests                         | 77 Vitest (45 unit + 32 integration) + 8 Playwright                                                                                       | all   | [~]   |
 
 Test cases: TC-E0S1-01 valid registration (unverified user, email enqueued) · -02 duplicate email (generic, no 2nd user) · -03 weak password rejected server-side · -04 valid token → verified + session · -05 expired/invalid token rejected, resend offered · -06 6 registrations/min from one IP → throttled. Extras covered: unverified sign-in 403, `platformRole` not client-settable, input normalisation, provider outage, resend enumeration-safety.
 
 > **Deviation (see §11):** Better Auth verification tokens are stateless JWTs, so resending does **not** invalidate the earlier token; it only expires after 1 h. AC wording "old token invalidated" is relaxed accordingly.
 > **Remaining to close this story:** apply the bundle on a feature branch, run `prisma migrate dev` (confirm no drift), run the full gate (§1.4), commit and raise the PR. Branch: `feat/e0-s1-register-verify`.
 
-#### E0-S2 — Sign in, reset password, manage profile *(UC-02)*
-*As any user, I want to sign in, reset my password and edit my profile so that I control my account.*
+#### E0-S2 — Sign in, reset password, manage profile _(UC-02)_
+
+_As any user, I want to sign in, reset my password and edit my profile so that I control my account._
 **Acceptance:** correct credentials → rotating session cookie · wrong credentials → generic failure + throttled (CR-9/CR-8) · reset link single-use + expiring · profile update re-validates and never changes `platformRole` or another user's data (CR-1).
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E0-S2-01** Auth schemas | `loginSchema`, `forgotPasswordSchema`, `resetPasswordSchema`, `profileSchema` in `lib/validation/auth.ts` | U | schemas shared client/server |
-| **E0-S2-02** Sign-in + session policy | enable email/password sign-in in config; session expiry/rotation; per-IP + per-account throttling rule for `/sign-in/email` | I: TC-E0S2-01, -02 | sign-in works; generic failures |
-| **E0-S2-03** Forgot/reset password | `sendResetPassword` via email queue (new `passwordResetEmail` template), single-use token, enumeration-safe `/forgot-password` | U (template), I: TC-E0S2-03 | reused token rejected |
-| **E0-S2-04** Profile service | `lib/services/profile.ts` (`getProfile`, `updateProfile`) calling `requireUser`; `platformRole` impossible to set via input | I: TC-E0S2-04, -05 | cross-user edit denied |
-| **E0-S2-05** UI | `/sign-in`, `/forgot-password`, `/reset-password`, `/account/profile`; fix links used in already-registered email (`/sign-in`, `/forgot-password`) | E: sign-in → profile edit → sign-out; reset flow via outbox | links from S1 email resolve |
+| Task                                  | Deliverables                                                                                                                                       | Tests                                                       | Done-when                       |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------- |
+| **E0-S2-01** Auth schemas             | `loginSchema`, `forgotPasswordSchema`, `resetPasswordSchema`, `profileSchema` in `lib/validation/auth.ts`                                          | U                                                           | schemas shared client/server    |
+| **E0-S2-02** Sign-in + session policy | enable email/password sign-in in config; session expiry/rotation; per-IP + per-account throttling rule for `/sign-in/email`                        | I: TC-E0S2-01, -02                                          | sign-in works; generic failures |
+| **E0-S2-03** Forgot/reset password    | `sendResetPassword` via email queue (new `passwordResetEmail` template), single-use token, enumeration-safe `/forgot-password`                     | U (template), I: TC-E0S2-03                                 | reused token rejected           |
+| **E0-S2-04** Profile service          | `lib/services/profile.ts` (`getProfile`, `updateProfile`) calling `requireUser`; `platformRole` impossible to set via input                        | I: TC-E0S2-04, -05                                          | cross-user edit denied          |
+| **E0-S2-05** UI                       | `/sign-in`, `/forgot-password`, `/reset-password`, `/account/profile`; fix links used in already-registered email (`/sign-in`, `/forgot-password`) | E: sign-in → profile edit → sign-out; reset flow via outbox | links from S1 email resolve     |
 
 Test cases: TC-E0S2-01 correct login → session issued & rotates · -02 wrong password ×N → generic error, throttled · -03 reset token reused → rejected after first use · -04 user A edits user B profile → denied · -05 client sends `platformRole=ADMIN` on profile save → ignored/denied.
 
 #### E0-S3 — RBAC guard & route protection
-*As the platform, I want server-side role gates so privileges can't be forged.*
+
+_As the platform, I want server-side role gates so privileges can't be forged._
 **Acceptance:** `requireRole('VENDOR'|'ADMIN')` protects the respective layouts; services re-check (route guard is coarse, service check is real); unauthenticated/mis-role access → 403/redirect, never data.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E0-S3-01** Guard library | `lib/auth/guards.ts`: `requireUser`, `requireRole`, `requireVendorMember(vendorId, roles?)`, `requireAdmin`; returns typed `Actor` | U (guards with fake session), I: TC-E0S3-02, -03 | single import point for all services |
-| **E0-S3-02** Layout protection | `app/(vendor)/layout.tsx`, `app/(admin)/layout.tsx` (or route-group equivalents) redirect on role mismatch; proxy/middleware only coarse | E: TC-E0S3-01, E2E-07 | no privileged data rendered |
-| **E0-S3-03** Seed users | `prisma/seed.ts` (idempotent): admin, approved vendor owner + staff, tourist; documented in README; **test-only credentials, never in production** | I: seed idempotent | `pnpm prisma db seed` works |
+| Task                           | Deliverables                                                                                                                                       | Tests                                            | Done-when                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------ |
+| **E0-S3-01** Guard library     | `lib/auth/guards.ts`: `requireUser`, `requireRole`, `requireVendorMember(vendorId, roles?)`, `requireAdmin`; returns typed `Actor`                 | U (guards with fake session), I: TC-E0S3-02, -03 | single import point for all services |
+| **E0-S3-02** Layout protection | `app/(vendor)/layout.tsx`, `app/(admin)/layout.tsx` (or route-group equivalents) redirect on role mismatch; proxy/middleware only coarse           | E: TC-E0S3-01, E2E-07                            | no privileged data rendered          |
+| **E0-S3-03** Seed users        | `prisma/seed.ts` (idempotent): admin, approved vendor owner + staff, tourist; documented in README; **test-only credentials, never in production** | I: seed idempotent                               | `pnpm prisma db seed` works          |
 
 Test cases: TC-E0S3-01 tourist hits `/vendor` → denied/redirected · -02 vendor calls admin service action → denied · -03 staff of vendor X reads vendor Y bookings → denied (CR-2).
 
@@ -608,16 +632,17 @@ Test cases: TC-E0S3-01 tourist hits `/vendor` → denied/redirected · -02 vendo
 
 ### BL-E8 — Vendor governance (Admin)
 
-#### E8-S1 — Approve / reject / suspend vendors *(UC-20)*
-*As an Admin, I want to govern vendor status so that only trusted supply is live.*
+#### E8-S1 — Approve / reject / suspend vendors _(UC-20)_
+
+_As an Admin, I want to govern vendor status so that only trusted supply is live._
 **Acceptance:** queue of `PENDING` vendors · transitions `PENDING→APPROVED|REJECTED`, `APPROVED→SUSPENDED`, `SUSPENDED→APPROVED` (others illegal) · suspending hides listings from discovery immediately and blocks new bookings · actions audit-logged.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E8-S1-01** AuditLog + state machine | migration adding `AuditLog`; `lib/services/vendor-governance.ts` with explicit transition table; `audit.record()` helper | U: transition table (all legal + illegal); I: audit rows written in same TX | illegal transitions throw `Conflict` |
-| **E8-S1-02** Visibility predicate | `lib/catalog/visibility.ts`: `publiclyVisibleListingWhere()` (PUBLISHED ∧ vendor APPROVED) reused by search/pages; `assertVendorCanSell(vendorId)` helper (APPROVED ∧ onboarded) | I: IT-17 (partial), IT-14 stub | single source of truth for visibility |
-| **E8-S1-03** Admin UI | `/admin/vendors` queue + detail, approve/reject (reason)/suspend/reinstate actions | E: approve & suspend path | actions reflect immediately |
-| **E8-S1-04** Email | vendor-approved / rejected / suspended templates (CR-7, exactly one each) | U templates; I enqueue-once | emails fire once per transition |
+| Task                                  | Deliverables                                                                                                                                                                     | Tests                                                                       | Done-when                             |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------- |
+| **E8-S1-01** AuditLog + state machine | migration adding `AuditLog`; `lib/services/vendor-governance.ts` with explicit transition table; `audit.record()` helper                                                         | U: transition table (all legal + illegal); I: audit rows written in same TX | illegal transitions throw `Conflict`  |
+| **E8-S1-02** Visibility predicate     | `lib/catalog/visibility.ts`: `publiclyVisibleListingWhere()` (PUBLISHED ∧ vendor APPROVED) reused by search/pages; `assertVendorCanSell(vendorId)` helper (APPROVED ∧ onboarded) | I: IT-17 (partial), IT-14 stub                                              | single source of truth for visibility |
+| **E8-S1-03** Admin UI                 | `/admin/vendors` queue + detail, approve/reject (reason)/suspend/reinstate actions                                                                                               | E: approve & suspend path                                                   | actions reflect immediately           |
+| **E8-S1-04** Email                    | vendor-approved / rejected / suspended templates (CR-7, exactly one each)                                                                                                        | U templates; I enqueue-once                                                 | emails fire once per transition       |
 
 Test cases: TC-E8S1-01 approve pending → APPROVED, onboarding unlockable · -02 suspend → listings drop from discovery, no new bookings · -03 reinstate → APPROVED · -04 non-admin calls approve → denied.
 
@@ -625,44 +650,47 @@ Test cases: TC-E8S1-01 approve pending → APPROVED, onboarding unlockable · -0
 
 ### BL-E4 — Vendor onboarding & payout readiness
 
-#### E4-S1 — Apply to become a vendor *(UC-14)*
-*As a user, I want to apply with business details so that I can be approved to sell.*
+#### E4-S1 — Apply to become a vendor _(UC-14)_
+
+_As a user, I want to apply with business details so that I can be approved to sell._
 **Acceptance:** creates `Vendor(PENDING)` + `VendorMember(OWNER)` for the caller · cannot publish or be paid while PENDING · one open application per owner.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
+| Task                             | Deliverables                                                                                                                                                                         | Tests                                                          | Done-when                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- | ----------------------------------- |
 | **E4-S1-01** Application service | `vendorApplicationSchema`; `lib/services/vendor-application.ts#applyAsVendor` (TX: Vendor + Owner member; sets caller's `platformRole` to VENDOR **only on approval**, not on apply) | U schema; I: one open application per owner, second → Conflict | no privilege change before approval |
-| **E4-S1-02** UI | `/vendor/apply` (react-hook-form), status page showing PENDING/REJECTED | E: apply → pending shown | applicant sees status |
-| **E4-S1-03** Admin notification | enqueue admin email on new application; surfaces in E8-S1 queue | I | queue shows new vendor |
+| **E4-S1-02** UI                  | `/vendor/apply` (react-hook-form), status page showing PENDING/REJECTED                                                                                                              | E: apply → pending shown                                       | applicant sees status               |
+| **E4-S1-03** Admin notification  | enqueue admin email on new application; surfaces in E8-S1 queue                                                                                                                      | I                                                              | queue shows new vendor              |
 
 Test cases: TC-E4S1-01 apply → Vendor PENDING + OWNER member · -02 second application while one open → rejected · -03 PENDING vendor cannot publish (service) · -04 roles unchanged until approval.
 
-#### E4-S2 — Stripe Connect Express onboarding *(UC-19)*
-*As a Vendor Owner, I want to complete KYC and bank setup so that I can receive payouts.*
+#### E4-S2 — Stripe Connect Express onboarding _(UC-19)_
+
+_As a Vendor Owner, I want to complete KYC and bank setup so that I can receive payouts._
 **Acceptance:** after approval, owner starts Connect Express (account + hosted link) · `account.updated` sets `stripeOnboardingComplete=true` only when `charges_enabled && payouts_enabled` · publish and payout **hard-gated** server-side on `APPROVED && stripeOnboardingComplete` · incomplete KYC shows "action needed" deep link.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E4-S2-01** Stripe adapter | `lib/stripe/adapter.ts` interface (accounts, account links, later: PaymentIntents, transfers, refunds, reversals), `lib/stripe/real.ts`, `lib/stripe/fake.ts`; env `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | U: fake behaves per contract | all Stripe access through adapter |
-| **E4-S2-02** Start onboarding | `startOnboarding(vendorId)` (OWNER only, vendor APPROVED) creates/reuses account, returns link; idempotency key | I: owner ok, staff denied, PENDING vendor denied | link returned |
-| **E4-S2-03** Webhook endpoint | `app/api/webhooks/stripe/route.ts`: raw-body signature verification, `WebhookEvent` dedupe (insert-first unique `stripeEventId`), dispatch table | I: TC-E2S3-06 (bad signature), IT-08 (dedupe) | shared with E2/E10 |
-| **E4-S2-04** `account.updated` handler | sets/clears `stripeOnboardingComplete`; updates requirement summary | I: TC-E4S2-03 | flag follows Stripe |
-| **E4-S2-05** Gate | `assertVendorCanSell()` used by publish and payout paths | I: TC-E4S2-01/-02/-04, IT-14 | gates enforced in services |
-| **E4-S2-06** UI | `/vendor/payouts/setup` status + "continue onboarding" | E: E2E-03 (onboarding part, test-mode or faked link) | status reflects flag |
+| Task                                   | Deliverables                                                                                                                                                                                                    | Tests                                                | Done-when                         |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------- |
+| **E4-S2-01** Stripe adapter            | `lib/stripe/adapter.ts` interface (accounts, account links, later: PaymentIntents, transfers, refunds, reversals), `lib/stripe/real.ts`, `lib/stripe/fake.ts`; env `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | U: fake behaves per contract                         | all Stripe access through adapter |
+| **E4-S2-02** Start onboarding          | `startOnboarding(vendorId)` (OWNER only, vendor APPROVED) creates/reuses account, returns link; idempotency key                                                                                                 | I: owner ok, staff denied, PENDING vendor denied     | link returned                     |
+| **E4-S2-03** Webhook endpoint          | `app/api/webhooks/stripe/route.ts`: raw-body signature verification, `WebhookEvent` dedupe (insert-first unique `stripeEventId`), dispatch table                                                                | I: TC-E2S3-06 (bad signature), IT-08 (dedupe)        | shared with E2/E10                |
+| **E4-S2-04** `account.updated` handler | sets/clears `stripeOnboardingComplete`; updates requirement summary                                                                                                                                             | I: TC-E4S2-03                                        | flag follows Stripe               |
+| **E4-S2-05** Gate                      | `assertVendorCanSell()` used by publish and payout paths                                                                                                                                                        | I: TC-E4S2-01/-02/-04, IT-14                         | gates enforced in services        |
+| **E4-S2-06** UI                        | `/vendor/payouts/setup` status + "continue onboarding"                                                                                                                                                          | E: E2E-03 (onboarding part, test-mode or faked link) | status reflects flag              |
 
 Test cases: TC-E4S2-01 approved + onboarding complete → publish & payout unlocked · -02 approved, onboarding incomplete → publish blocked, "action needed" · -03 `account.updated` charges only, no payouts → flag stays false · -04 publish while vendor PENDING → denied server-side.
 
 ---
 
-### BL-E9-S2 — Manage categories / taxonomy *(run before E5)* *(UC-22)*
-*As an Admin, I want to manage categories so the catalog is organised and priced.*
+### BL-E9-S2 — Manage categories / taxonomy _(run before E5)_ _(UC-22)_
+
+_As an Admin, I want to manage categories so the catalog is organised and priced._
 **Acceptance:** CRUD with self-referential `parentId`, `type`, `commissionBpsDefault` · cannot delete a category with listings · changing a default affects only new bookings (not settled items).
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
+| Task                          | Deliverables                                                                                      | Tests                                     | Done-when                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------- | ----------------------------- |
 | **E9-S2-01** Category service | `lib/services/category.ts` (CRUD, tree read, cycle prevention, delete guard); bps bounds 0..10000 | U: cycle detection, bounds; I: TC-E9S2-01 | no cycles, no orphan listings |
-| **E9-S2-02** Seed taxonomy | seed top-level categories (Tours, Events, …) with defaults | I | seed idempotent |
-| **E9-S2-03** Admin UI | `/admin/categories` tree editor | E | CRUD works |
+| **E9-S2-02** Seed taxonomy    | seed top-level categories (Tours, Events, …) with defaults                                        | I                                         | seed idempotent               |
+| **E9-S2-03** Admin UI         | `/admin/categories` tree editor                                                                   | E                                         | CRUD works                    |
 
 Test cases: TC-E9S2-01 delete category with listings → blocked · -02 change default → applies to new bookings only · -03 parent cycle → rejected.
 
@@ -670,41 +698,44 @@ Test cases: TC-E9S2-01 delete category with listings → blocked · -02 change d
 
 ### BL-E5 — Catalog, products & availability (Vendor)
 
-#### E5-S1 — Manage listings & images *(UC-15)*
-*As a Vendor, I want to create/edit listings with images and location so tourists can find them.*
+#### E5-S1 — Manage listings & images _(UC-15)_
+
+_As a Vendor, I want to create/edit listings with images and location so tourists can find them._
 **Acceptance:** CRUD scoped to caller's vendor (CR-2) · images to S3 as `ListingImage` rows · new listing `DRAFT`; submit → `PENDING_REVIEW`; major edit of a `PUBLISHED` listing → back to `PENDING_REVIEW` · vendor cannot self-publish.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E5-S1-01** Listing service + state machine | `listingSchema`; `lib/services/listing.ts` (create/update/submit), transition table, "major field" list | U: transitions, major-edit detection; I: TC-E5S1-01..04 | vendor scoping proven |
-| **E5-S1-02** Image storage | S3 adapter (presigned upload, MIME/size limits, `ListingImage` position ordering), local fake | U: validators; I: ordering/reorder | images persisted as rows |
-| **E5-S1-03** Vendor listing UI | `/vendor/listings` list/new/edit, image uploader, submit button | E | create → submit works |
+| Task                                         | Deliverables                                                                                            | Tests                                                   | Done-when                |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------ |
+| **E5-S1-01** Listing service + state machine | `listingSchema`; `lib/services/listing.ts` (create/update/submit), transition table, "major field" list | U: transitions, major-edit detection; I: TC-E5S1-01..04 | vendor scoping proven    |
+| **E5-S1-02** Image storage                   | S3 adapter (presigned upload, MIME/size limits, `ListingImage` position ordering), local fake           | U: validators; I: ordering/reorder                      | images persisted as rows |
+| **E5-S1-03** Vendor listing UI               | `/vendor/listings` list/new/edit, image uploader, submit button                                         | E                                                       | create → submit works    |
 
 Test cases: TC-E5S1-01 create → DRAFT owned by caller vendor · -02 submit → PENDING_REVIEW · -03 edit PUBLISHED core fields → PENDING_REVIEW · -04 edit another vendor's listing → denied.
 
-#### E5-S2 — Manage products & timed-slot availability *(UC-16)*
-*As a Vendor, I want to define products and generate capacity so slots are bookable.*
+#### E5-S2 — Manage products & timed-slot availability _(UC-16)_
+
+_As a Vendor, I want to define products and generate capacity so slots are bookable._
 **Acceptance:** product CRUD (pence, `policy` within platform bounds D4) · single or recurring slot generation (`remaining=capacity`) · future slots editable/closable · slot with bookings **cannot be deleted, only closed** · past slots read-only · optional per-slot price override · recurrence overlap warns/merges.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E5-S2-01** Product service + policy bounds | `productSchema`; `lib/services/product.ts`; `policyBounds` validator (platform max refund window etc.) | U: bounds; I: TC-E5S2-04 | out-of-bounds policy rejected |
-| **E5-S2-02** Timed-slot module | `lib/availability/module.ts` (`AvailabilityModule` interface) + `lib/availability/timed-slot.ts` generator (single + recurrence, DST-safe via London tz) | U: TC-E5S2-01, DST edge cases | recurrence correct across BST/GMT |
-| **E5-S2-03** Edit/close guard | `closeSlot`, `deleteSlot` guard, past-slot read-only, price override | I: TC-E5S2-02, -03, -05 | booked slots protected |
-| **E5-S2-04** UI | `/vendor/listings/[id]/products`, slot calendar/list, recurrence form | E: create product + recurring slots | slots appear |
+| Task                                         | Deliverables                                                                                                                                             | Tests                               | Done-when                         |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | --------------------------------- |
+| **E5-S2-01** Product service + policy bounds | `productSchema`; `lib/services/product.ts`; `policyBounds` validator (platform max refund window etc.)                                                   | U: bounds; I: TC-E5S2-04            | out-of-bounds policy rejected     |
+| **E5-S2-02** Timed-slot module               | `lib/availability/module.ts` (`AvailabilityModule` interface) + `lib/availability/timed-slot.ts` generator (single + recurrence, DST-safe via London tz) | U: TC-E5S2-01, DST edge cases       | recurrence correct across BST/GMT |
+| **E5-S2-03** Edit/close guard                | `closeSlot`, `deleteSlot` guard, past-slot read-only, price override                                                                                     | I: TC-E5S2-02, -03, -05             | booked slots protected            |
+| **E5-S2-04** UI                              | `/vendor/listings/[id]/products`, slot calendar/list, recurrence form                                                                                    | E: create product + recurring slots | slots appear                      |
 
 Test cases: TC-E5S2-01 "every Sat ×8, cap 20" → 8 slots, remaining=20 · -02 delete slot with bookings → blocked, close-only · -03 edit past slot → read-only · -04 policy exceeds platform max → rejected · -05 per-slot price override.
 
 ---
 
-### BL-E9-S1 — Moderate listings *(UC-21)*
-*As an Admin, I want to approve or reject listings so nothing goes public unvetted.*
+### BL-E9-S1 — Moderate listings _(UC-21)_
+
+_As an Admin, I want to approve or reject listings so nothing goes public unvetted._
 **Acceptance:** queue of `PENDING_REVIEW`; `→PUBLISHED` or `→REJECTED` (reason, resubmittable) · **no listing is public without admin approval** · publish requires vendor `APPROVED` (and onboarded for bookability).
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
+| Task                            | Deliverables                                                                                               | Tests                    | Done-when              |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------- |
 | **E9-S1-01** Moderation service | `lib/services/listing-moderation.ts` (`approve`, `reject(reason)`), uses `assertVendorCanSell`, audit-logs | I: TC-E9S1-01/-02, IT-14 | state machine enforced |
-| **E9-S1-02** Admin UI + email | `/admin/listings` queue/detail; approved/rejected emails | E: E2E-03 final step | vendor notified |
+| **E9-S1-02** Admin UI + email   | `/admin/listings` queue/detail; approved/rejected emails                                                   | E: E2E-03 final step     | vendor notified        |
 
 Test cases: TC-E9S1-01 approve → PUBLISHED (searchable) · -02 reject with reason → REJECTED, resubmittable · -03 approve when vendor not eligible → blocked.
 
@@ -712,77 +743,82 @@ Test cases: TC-E9S1-01 approve → PUBLISHED (searchable) · -02 reject with rea
 
 ### BL-E1 — Discovery & trip planning (Tourist)
 
-#### E1-S1 — Search, filter & map *(UC-07/08/09)*
-*As a Guest/Tourist, I want to search and filter listings and see them on a map so I can find things to book.*
+#### E1-S1 — Search, filter & map _(UC-07/08/09)_
+
+_As a Guest/Tourist, I want to search and filter listings and see them on a map so I can find things to book._
 **Acceptance:** only `PUBLISHED` listings of `APPROVED` vendors · FTS over title/description · category/area/date/price filters compose (AND) · date filter only surfaces products with a bookable future slot (remaining > 0, before cutoff) · map via lat/lng bounding box · SSR for SEO.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E1-S1-01** FTS + filter builder | migration: `tsvector` generated column + GIN index; `lib/search/service.ts` (uses `publiclyVisibleListingWhere`), pagination | U: filter builder; I: TC-E1S1-01/-02/-04, IT-17 | scoped results only |
-| **E1-S1-02** Availability-aware date filter | join to future `Availability` (remaining>0, cutoff in UTC) | I: TC-E1S1-03 | past-cutoff slots ignored |
-| **E1-S1-03** Bounding-box geo | `bbox` query + haversine ordering helper | U: haversine; I: TC-E1S1-05 | only in-viewport listings |
-| **E1-S1-04** SSR pages | `/explore`, `/listings/[slug]` (metadata + schema.org JSON-LD), London-time rendering | E: page renders, meta present | indexable |
-| **E1-S1-05** Filter UI + map island | URL-driven filters, map component | E | filters reflected in URL |
+| Task                                        | Deliverables                                                                                                                 | Tests                                           | Done-when                 |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------- |
+| **E1-S1-01** FTS + filter builder           | migration: `tsvector` generated column + GIN index; `lib/search/service.ts` (uses `publiclyVisibleListingWhere`), pagination | U: filter builder; I: TC-E1S1-01/-02/-04, IT-17 | scoped results only       |
+| **E1-S1-02** Availability-aware date filter | join to future `Availability` (remaining>0, cutoff in UTC)                                                                   | I: TC-E1S1-03                                   | past-cutoff slots ignored |
+| **E1-S1-03** Bounding-box geo               | `bbox` query + haversine ordering helper                                                                                     | U: haversine; I: TC-E1S1-05                     | only in-viewport listings |
+| **E1-S1-04** SSR pages                      | `/explore`, `/listings/[slug]` (metadata + schema.org JSON-LD), London-time rendering                                        | E: page renders, meta present                   | indexable                 |
+| **E1-S1-05** Filter UI + map island         | URL-driven filters, map component                                                                                            | E                                               | filters reflected in URL  |
 
 Test cases: TC-E1S1-01 draft/pending listing never in results · -02 suspended vendor's listing excluded · -03 all slots past cutoff → not returned for that date · -04 price + category → both applied · -05 map viewport → only inside bbox.
 
-#### E1-S2 — Save to trip & itinerary *(UC-30)*
-*As a Tourist, I want to save listings to a trip and order them with optional dates so I can plan before booking.*
+#### E1-S2 — Save to trip & itinerary _(UC-30)_
+
+_As a Tourist, I want to save listings to a trip and order them with optional dates so I can plan before booking._
 **Acceptance:** Tourist owns their trips (CR-1) · `TripItem` has `position` and optional `plannedDate` · reorder persists atomically · item can be taken to cart · deleting a trip cascades.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E1-S2-01** Trip service | create/rename/delete trip, add/remove item, ownership checks | I: TC-E1S2-01, -03 | next-position assignment |
-| **E1-S2-02** Reorder | atomic position update (single TX, no gaps/dupes) | I: TC-E1S2-02 | stable ordering |
-| **E1-S2-03** UI | `/trips`, `/trips/[id]`, "save to trip" on listing page | E | plan → saved |
-| **E1-S2-04** Add-to-cart hook | pre-fill product/slot into cart (after E2-S1) | I: TC-E1S2-04 | cart pre-filled |
+| Task                          | Deliverables                                                 | Tests              | Done-when                |
+| ----------------------------- | ------------------------------------------------------------ | ------------------ | ------------------------ |
+| **E1-S2-01** Trip service     | create/rename/delete trip, add/remove item, ownership checks | I: TC-E1S2-01, -03 | next-position assignment |
+| **E1-S2-02** Reorder          | atomic position update (single TX, no gaps/dupes)            | I: TC-E1S2-02      | stable ordering          |
+| **E1-S2-03** UI               | `/trips`, `/trips/[id]`, "save to trip" on listing page      | E                  | plan → saved             |
+| **E1-S2-04** Add-to-cart hook | pre-fill product/slot into cart (after E2-S1)                | I: TC-E1S2-04      | cart pre-filled          |
 
 Test cases: TC-E1S2-01 add listing → TripItem at next position · -02 reorder → atomic · -03 user A edits user B's trip → denied · -04 add-to-cart from trip item → pre-filled.
 
 ---
 
-### BL-E2 — Cart, checkout & payment *(flagship; governed by CR-3/4/5)*
+### BL-E2 — Cart, checkout & payment _(flagship; governed by CR-3/4/5)_
 
-#### E2-S1 — Add to cart with soft hold *(UC-10)*
-*As a Tourist, I want adding an item to reserve capacity briefly so it isn't sold while I check out.*
+#### E2-S1 — Add to cart with soft hold _(UC-10)_
+
+_As a Tourist, I want adding an item to reserve capacity briefly so it isn't sold while I check out._
 **Acceptance:** `add(product, availability, qty)` in a row-locked TX: if `remaining ≥ qty` write `Hold(TTL≈10 min)` + schedule expiry; else "not enough left" · cart groups by vendor with per-item price and total · expired holds release capacity.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E2-S1-01** Commission resolver | `lib/money/commission.ts`: `resolveBps(vendor, category, platform)`, `commissionAmount()` (integer rounding, banker-safe), `money.ts` helpers | U: TC-E2S1-04/-05 + rounding property tests; I: IT-05, IT-20 | no float arithmetic |
-| **E2-S1-02** Hold on availability | `TimedSlotModule.hold()` with `FOR UPDATE`; `remaining` derivation | I: IT-01 (concurrent), TC-E2S1-01/-02 | never negative |
-| **E2-S1-03** Hold expiry job | pg-boss `hold.expire` scheduled at hold creation; idempotent release | I: IT-02, TC-E2S1-03 (fake timers) | capacity returns |
-| **E2-S1-04** Cart service | `cartSchema`; `lib/services/cart.ts` (add/update/remove/get, group by vendor, per-user cart = active holds); rate limited (CR-8) | I: TC-E2S1-06 | server-computed totals |
-| **E2-S1-05** Cart UI | cart island/page, countdown to hold expiry | E: add → cart shows grouped totals | UX shows expiry |
+| Task                              | Deliverables                                                                                                                                  | Tests                                                        | Done-when              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------- |
+| **E2-S1-01** Commission resolver  | `lib/money/commission.ts`: `resolveBps(vendor, category, platform)`, `commissionAmount()` (integer rounding, banker-safe), `money.ts` helpers | U: TC-E2S1-04/-05 + rounding property tests; I: IT-05, IT-20 | no float arithmetic    |
+| **E2-S1-02** Hold on availability | `TimedSlotModule.hold()` with `FOR UPDATE`; `remaining` derivation                                                                            | I: IT-01 (concurrent), TC-E2S1-01/-02                        | never negative         |
+| **E2-S1-03** Hold expiry job      | pg-boss `hold.expire` scheduled at hold creation; idempotent release                                                                          | I: IT-02, TC-E2S1-03 (fake timers)                           | capacity returns       |
+| **E2-S1-04** Cart service         | `cartSchema`; `lib/services/cart.ts` (add/update/remove/get, group by vendor, per-user cart = active holds); rate limited (CR-8)              | I: TC-E2S1-06                                                | server-computed totals |
+| **E2-S1-05** Cart UI              | cart island/page, countdown to hold expiry                                                                                                    | E: add → cart shows grouped totals                           | UX shows expiry        |
 
 Test cases: TC-E2S1-01 qty ≤ remaining → hold created · -02 qty > remaining → rejected, no hold · -03 TTL elapses → expiry job releases · -04 vendor override wins · -05 no override → category, else platform default · -06 two vendors → grouped per vendor.
 
-#### E2-S2 — Checkout, booking creation & Stripe charge *(UC-11)*
-*As a Tourist, I want to pay once for a cart that may span vendors so each vendor is paid their share minus commission.*
+#### E2-S2 — Checkout, booking creation & Stripe charge _(UC-11)_
+
+_As a Tourist, I want to pay once for a cart that may span vendors so each vendor is paid their share minus commission._
 **Acceptance:** at checkout re-validate every hold; compute commission per item; create `Booking(PENDING)` + `BookingItem`s (`vendorId`, `unitPrice`, `commissionAmount`) in one TX · single-vendor → destination charge + `application_fee_amount` · multi-vendor → platform charge, transfers on confirmation · all Stripe writes carry idempotency keys · no card data touches VML · non-payout-ready vendor's item is blocked · client totals ignored.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E2-S2-01** Checkout validation + booking TX | `lib/services/checkout.ts`: revalidate holds, recompute prices server-side, `vendorId` from product, create booking + items atomically | I: IT-04, IT-19, TC-E2S2-03/-04/-06 | tampered totals ignored |
-| **E2-S2-02** Stripe charges | adapter: destination charge (single vendor), platform PaymentIntent (multi-vendor) | I (fake): IT-06 setup, TC-E2S2-01/-02 | correct fee & transfer plan |
-| **E2-S2-03** Idempotency strategy | deterministic keys (`checkout:<bookingId>:<attempt>`), duplicate-submit guard | I: TC-E2S2-05 | one PaymentIntent per booking |
-| **E2-S2-04** Checkout action + redirect | Stripe Checkout/Payment Element redirect, success/cancel URLs | E: reach Stripe test page | session created |
-| **E2-S2-05** Processing page | `/checkout/processing` polls booking status (optimistic only; CR-4) | E: E2E-09 (part) | never marks confirmed itself |
+| Task                                          | Deliverables                                                                                                                           | Tests                                 | Done-when                     |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------- |
+| **E2-S2-01** Checkout validation + booking TX | `lib/services/checkout.ts`: revalidate holds, recompute prices server-side, `vendorId` from product, create booking + items atomically | I: IT-04, IT-19, TC-E2S2-03/-04/-06   | tampered totals ignored       |
+| **E2-S2-02** Stripe charges                   | adapter: destination charge (single vendor), platform PaymentIntent (multi-vendor)                                                     | I (fake): IT-06 setup, TC-E2S2-01/-02 | correct fee & transfer plan   |
+| **E2-S2-03** Idempotency strategy             | deterministic keys (`checkout:<bookingId>:<attempt>`), duplicate-submit guard                                                          | I: TC-E2S2-05                         | one PaymentIntent per booking |
+| **E2-S2-04** Checkout action + redirect       | Stripe Checkout/Payment Element redirect, success/cancel URLs                                                                          | E: reach Stripe test page             | session created               |
+| **E2-S2-05** Processing page                  | `/checkout/processing` polls booking status (optimistic only; CR-4)                                                                    | E: E2E-09 (part)                      | never marks confirmed itself  |
 
 Test cases: TC-E2S2-01 single-vendor → destination charge, fee = Σ commission · -02 two-vendor → one PaymentIntent, two transfers planned · -03 vendor not onboarded → item blocked · -04 hold expired before pay → re-hold; if gone "just sold out" · -05 duplicate submit → one PaymentIntent · -06 tampered client total → server recomputes.
 
-#### E2-S3 — Webhook confirmation & lifecycle *(UC-11 cont.)*
-*As the platform, I want payment webhooks to drive booking state so confirmation is correct even if the browser never returns.*
+#### E2-S3 — Webhook confirmation & lifecycle _(UC-11 cont.)_
+
+_As the platform, I want payment webhooks to drive booking state so confirmation is correct even if the browser never returns._
 **Acceptance:** verified + deduped handler · on `payment_intent.succeeded`: Payment=succeeded, Booking=CONFIRMED, holds→permanent decrement (TX), create `Transfer` rows + Stripe transfers (multi-vendor), enqueue tourist + vendor emails · PENDING past TTL cancelled with holds released · delayed/duplicate/out-of-order never double-process · partial transfer failure leaves booking paid and flags the transfer.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E2-S3-01** `succeeded` handler | confirm booking, set Payment, commit holds in TX (`TimedSlotModule.commit`) | I: IT-03, IT-09, TC-E2S3-01/-03 | exactly-once effect |
-| **E2-S3-02** Transfers | create `Transfer` rows + Stripe transfers (guarded by `assertVendorCanSell`), per-transfer error capture | I: IT-07, IT-13, IT-15, TC-E2S3-05 | failures flagged, booking stays paid |
-| **E2-S3-03** Emails | booking-confirmed (tourist) + new-booking (vendor) templates, once each | U, I: enqueue-once | CR-7 met |
-| **E2-S3-04** Pending cleanup job | pg-boss cron: cancel unpaid bookings past TTL, release holds | I: IT-10, TC-E2S3-04 | no stuck capacity |
-| **E2-S3-05** Replay safety | out-of-order/duplicate event matrix (failed→succeeded, succeeded twice) | I: IT-08, TC-E2S3-02 | idempotent |
-| **E2-S3-06** E2E journeys | E2E-01, E2E-02, E2E-08, E2E-09 against Stripe test mode/CLI | E | flagship loop green |
+| Task                             | Deliverables                                                                                             | Tests                              | Done-when                            |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------ |
+| **E2-S3-01** `succeeded` handler | confirm booking, set Payment, commit holds in TX (`TimedSlotModule.commit`)                              | I: IT-03, IT-09, TC-E2S3-01/-03    | exactly-once effect                  |
+| **E2-S3-02** Transfers           | create `Transfer` rows + Stripe transfers (guarded by `assertVendorCanSell`), per-transfer error capture | I: IT-07, IT-13, IT-15, TC-E2S3-05 | failures flagged, booking stays paid |
+| **E2-S3-03** Emails              | booking-confirmed (tourist) + new-booking (vendor) templates, once each                                  | U, I: enqueue-once                 | CR-7 met                             |
+| **E2-S3-04** Pending cleanup job | pg-boss cron: cancel unpaid bookings past TTL, release holds                                             | I: IT-10, TC-E2S3-04               | no stuck capacity                    |
+| **E2-S3-05** Replay safety       | out-of-order/duplicate event matrix (failed→succeeded, succeeded twice)                                  | I: IT-08, TC-E2S3-02               | idempotent                           |
+| **E2-S3-06** E2E journeys        | E2E-01, E2E-02, E2E-08, E2E-09 against Stripe test mode/CLI                                              | E                                  | flagship loop green                  |
 
 Test cases: TC-E2S3-01 first `succeeded` → confirmed, decrement committed · -02 same event twice → no-op · -03 webhook after redirect timeout → still confirms · -04 PENDING past TTL → cancelled, holds released · -05 one of two transfers fails → booking paid, flagged · -06 bad signature → rejected.
 
@@ -790,25 +826,27 @@ Test cases: TC-E2S3-01 first `succeeded` → confirmed, decrement committed · -
 
 ### BL-E6 — Vendor booking ops & payouts
 
-#### E6-S1 — Manage incoming bookings *(UC-17)*
-*As a Vendor, I want to see and progress my bookings so I can fulfil them.*
+#### E6-S1 — Manage incoming bookings _(UC-17)_
+
+_As a Vendor, I want to see and progress my bookings so I can fulfil them._
 **Acceptance:** lists only items settled to caller's vendor (CR-2) · transitions `CONFIRMED → FULFILLED | NO_SHOW`; fulfil sets `fulfilledAt` · cannot fulfil refunded/cancelled items.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
+| Task                                 | Deliverables                                                                            | Tests                                    | Done-when        |
+| ------------------------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------- |
 | **E6-S1-01** Vendor bookings service | list/filter by date; `markFulfilled`, `markNoShow` with transition table; STAFF allowed | U: transitions; I: TC-E6S1-01/-02, IT-18 | scoped to vendor |
-| **E6-S1-02** UI + e2e | `/vendor/bookings` list/detail, action buttons | E: fulfil flow (feeds E2E-06) | status updates |
+| **E6-S1-02** UI + e2e                | `/vendor/bookings` list/detail, action buttons                                          | E: fulfil flow (feeds E2E-06)            | status updates   |
 
 Test cases: TC-E6S1-01 fulfil confirmed → FULFILLED, `fulfilledAt` set · -02 fulfil refunded item → blocked · -03 vendor A sees vendor B booking → denied.
 
-#### E6-S2 — View earnings & payout status *(UC-18)*
-*As a Vendor, I want to see earnings, fees and payout status so I trust I'm paid.*
+#### E6-S2 — View earnings & payout status _(UC-18)_
+
+_As a Vendor, I want to see earnings, fees and payout status so I trust I'm paid._
 **Acceptance:** read-only mirror of `Transfer`/`Refund` for caller's vendor; amounts as gross, commission, net.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E6-S2-01** Earnings service | aggregate by period; `net = gross − commission − refunds` | U: arithmetic; I: TC-E6S2-01/-02 | integer pence |
-| **E6-S2-02** UI | `/vendor/earnings` | E | numbers match fixtures |
+| Task                          | Deliverables                                              | Tests                            | Done-when              |
+| ----------------------------- | --------------------------------------------------------- | -------------------------------- | ---------------------- |
+| **E6-S2-01** Earnings service | aggregate by period; `net = gross − commission − refunds` | U: arithmetic; I: TC-E6S2-01/-02 | integer pence          |
+| **E6-S2-02** UI               | `/vendor/earnings`                                        | E                                | numbers match fixtures |
 
 Test cases: TC-E6S2-01 payout view net = gross − commission − refunds · -02 vendor sees another vendor's payouts → denied.
 
@@ -816,31 +854,34 @@ Test cases: TC-E6S2-01 payout view net = gross − commission − refunds · -02
 
 ### BL-E3 — Bookings, cancellation & reviews (Tourist)
 
-#### E3-S1 — View my bookings *(UC-12)*
+#### E3-S1 — View my bookings _(UC-12)_
+
 **Acceptance:** lists only caller's bookings with per-item status and London-rendered slot time; never another user's (CR-1).
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
+| Task                      | Deliverables                                                | Tests                                                                   | Done-when        |
+| ------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------- |
 | **E3-S1-01** Service + UI | `lib/services/my-bookings.ts`; `/account/bookings` + detail | I: TC-E3S1-01 (only own), TC-E3S1-02 (London rendering); E: E2E-01 tail | scoped to caller |
 
-#### E3-S2 — Cancel within policy *(UC-13)*
-*As a Tourist, I want to cancel within the allowed window so I can get the appropriate refund.*
+#### E3-S2 — Cancel within policy _(UC-13)_
+
+_As a Tourist, I want to cancel within the allowed window so I can get the appropriate refund._
 **Acceptance:** allowed only if `now < slotStart − cancelWindow` and item not fulfilled · triggers the refund path (E10-S1) per product policy within platform bounds (D4) · inventory restocked (CR-3).
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E3-S2-01** Policy evaluator | `lib/policy/cancellation.ts` (pure: window, refundable %, edge at exact cutoff in UTC) | U: boundary cases, DST | pure & exhaustive |
-| **E3-S2-02** Cancel service + UI | calls refund service, restocks; button on booking detail | I: TC-E3S2-01/-02/-03; E: E2E-05 | refund + capacity restored |
+| Task                             | Deliverables                                                                           | Tests                            | Done-when                  |
+| -------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------- | -------------------------- |
+| **E3-S2-01** Policy evaluator    | `lib/policy/cancellation.ts` (pure: window, refundable %, edge at exact cutoff in UTC) | U: boundary cases, DST           | pure & exhaustive          |
+| **E3-S2-02** Cancel service + UI | calls refund service, restocks; button on booking detail                               | I: TC-E3S2-01/-02/-03; E: E2E-05 | refund + capacity restored |
 
 Test cases: TC-E3S2-01 cancel inside window, refundable → refund + reversal + restock · -02 cancel outside window → blocked (or non-refundable per policy) · -03 cancel fulfilled item → blocked.
 
-#### E3-S3 — Leave a review (verified purchase) *(UC-32)*
+#### E3-S3 — Leave a review (verified purchase) _(UC-32)_
+
 **Acceptance:** only for a `FULFILLED` item owned by caller, one per item · rating 1–5 + text · created `PENDING` · displayed only once approved.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E3-S3-01** Review service | `reviewSchema`; create with gates; unique per item | U: rating bounds; I: TC-E3S3-01..04, IT-16 | gate enforced |
-| **E3-S3-02** UI + display | review form on booking detail; approved reviews on listing page with aggregate rating | E: E2E-06 (tourist part) | hidden until approved |
+| Task                        | Deliverables                                                                          | Tests                                      | Done-when             |
+| --------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------- |
+| **E3-S3-01** Review service | `reviewSchema`; create with gates; unique per item                                    | U: rating bounds; I: TC-E3S3-01..04, IT-16 | gate enforced         |
+| **E3-S3-02** UI + display   | review form on booking detail; approved reviews on listing page with aggregate rating | E: E2E-06 (tourist part)                   | hidden until approved |
 
 Test cases: TC-E3S3-01 review fulfilled item → PENDING · -02 review non-purchased listing → denied · -03 second review on same item → denied · -04 rating outside 1–5 → rejected.
 
@@ -848,58 +889,62 @@ Test cases: TC-E3S3-01 review fulfilled item → PENDING · -02 review non-purch
 
 ### BL-E10 — Financial oversight, refunds & disputes (Admin)
 
-#### E10-S1 — Refund + transfer reversal *(UC-23)*
-*As an Admin, I want to refund a tourist and claw back the vendor's share so money settles correctly.*
+#### E10-S1 — Refund + transfer reversal _(UC-23)_
+
+_As an Admin, I want to refund a tourist and claw back the vendor's share so money settles correctly._
 **Acceptance:** full/partial refund on a `BookingItem` · Stripe refund (idempotent) **and** transfer reversal · on refund/reversal webhooks write `Refund` (+ `transferReversalId`), set item `REFUNDED`, booking `PARTIALLY_REFUNDED|REFUNDED`, restock (CR-3) · partial refund recomputes commission proportionally · insufficient vendor balance → negative-balance path + admin flag.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E10-S1-01** Refund service | `refundSchema` (full/partial, reason, amount ≤ remaining refundable); `lib/services/refund.ts` | U: amount bounds; I: TC-E10S1-01/-03/-04 | cannot over-refund |
-| **E10-S1-02** Stripe refund + reversal | adapter methods, idempotency keys | I (fake): IT-11 setup | both calls issued once |
-| **E10-S1-03** Webhook handlers | `charge.refunded`/`refund.*`, `transfer.reversed` → state updates | I: IT-11, TC-E10S1-05 | deduped |
-| **E10-S1-04** Proportional commission | `commissionAmount × refund/subtotal` rounding rules | U: property tests; I: IT-12, TC-E10S1-02 | sums reconcile to the penny |
-| **E10-S1-05** Restock | `TimedSlotModule.restock` in TX | I: IT-03-style | capacity returned once |
-| **E10-S1-06** Emails | refund-issued (tourist), refund-reversal (vendor) | I enqueue-once | CR-7 |
-| **E10-S1-07** Admin UI + e2e | refund dialog on booking detail; E2E-04 | E | ledger reflects refund |
-| **E10-S1-08** Insufficient balance path | flag + admin surface | I: TC-E10S1-06 | no silent failure |
+| Task                                    | Deliverables                                                                                   | Tests                                    | Done-when                   |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------- | --------------------------- |
+| **E10-S1-01** Refund service            | `refundSchema` (full/partial, reason, amount ≤ remaining refundable); `lib/services/refund.ts` | U: amount bounds; I: TC-E10S1-01/-03/-04 | cannot over-refund          |
+| **E10-S1-02** Stripe refund + reversal  | adapter methods, idempotency keys                                                              | I (fake): IT-11 setup                    | both calls issued once      |
+| **E10-S1-03** Webhook handlers          | `charge.refunded`/`refund.*`, `transfer.reversed` → state updates                              | I: IT-11, TC-E10S1-05                    | deduped                     |
+| **E10-S1-04** Proportional commission   | `commissionAmount × refund/subtotal` rounding rules                                            | U: property tests; I: IT-12, TC-E10S1-02 | sums reconcile to the penny |
+| **E10-S1-05** Restock                   | `TimedSlotModule.restock` in TX                                                                | I: IT-03-style                           | capacity returned once      |
+| **E10-S1-06** Emails                    | refund-issued (tourist), refund-reversal (vendor)                                              | I enqueue-once                           | CR-7                        |
+| **E10-S1-07** Admin UI + e2e            | refund dialog on booking detail; E2E-04                                                        | E                                        | ledger reflects refund      |
+| **E10-S1-08** Insufficient balance path | flag + admin surface                                                                           | I: TC-E10S1-06                           | no silent failure           |
 
 Test cases: TC-E10S1-01 full refund → refund + full reversal, item REFUNDED, restock · -02 50 % partial → proportional refund/reversal/commission · -03 all items refunded → booking REFUNDED · -04 one of three → PARTIALLY_REFUNDED · -05 duplicate refund webhook → single Refund row · -06 vendor balance insufficient → negative-balance path, admin flagged.
 
-#### E10-S2 — Oversight, reconciliation, disputes & metrics *(UC-24/25/26)*
-*As an Admin, I want ledger oversight and reconciliation so VML's books match Stripe.*
+#### E10-S2 — Oversight, reconciliation, disputes & metrics _(UC-24/25/26)_
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E10-S2-01** Ledger views | `/admin/ledger` read-only unified list of Payment/Transfer/Refund with filters | I: totals; E | single reconciliation surface |
-| **E10-S2-02** Reconciliation job | pg-boss job retries failed transfers (bounded), flags unresolved | I: TC-E10S2-01 | flagged items visible |
-| **E10-S2-03** Disputes | migration `Dispute`; webhook `charge.dispute.*` recorder; admin list | I: TC-E10S2-03 | disputes recorded |
-| **E10-S2-04** Metrics | GMV, fee revenue, counts by range | U: arithmetic; I: TC-E10S2-02 | equals Σ confirmed totals |
+_As an Admin, I want ledger oversight and reconciliation so VML's books match Stripe._
+
+| Task                             | Deliverables                                                                   | Tests                         | Done-when                     |
+| -------------------------------- | ------------------------------------------------------------------------------ | ----------------------------- | ----------------------------- |
+| **E10-S2-01** Ledger views       | `/admin/ledger` read-only unified list of Payment/Transfer/Refund with filters | I: totals; E                  | single reconciliation surface |
+| **E10-S2-02** Reconciliation job | pg-boss job retries failed transfers (bounded), flags unresolved               | I: TC-E10S2-01                | flagged items visible         |
+| **E10-S2-03** Disputes           | migration `Dispute`; webhook `charge.dispute.*` recorder; admin list           | I: TC-E10S2-03                | disputes recorded             |
+| **E10-S2-04** Metrics            | GMV, fee revenue, counts by range                                              | U: arithmetic; I: TC-E10S2-02 | equals Σ confirmed totals     |
 
 Test cases: TC-E10S2-01 failed transfer → retried; flagged if still failing · -02 GMV = Σ confirmed booking totals in range · -03 dispute webhook → recorded and surfaced.
 
 ---
 
-### BL-E9-S3 — Moderate reviews *(UC-33; after E3-S3)*
+### BL-E9-S3 — Moderate reviews _(UC-33; after E3-S3)_
+
 **Acceptance:** PENDING reviews hidden until approved · reject/hide removes from listing · only verified-purchase reviews exist.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **E9-S3-01** Review moderation | service (`approve`, `reject`, `hide`), audit-logged, aggregate rating recompute | I: TC-E9S3-01..03 | only approved counted |
-| **E9-S3-02** Admin UI | `/admin/reviews` queue; completes E2E-06 | E | visible after approval |
+| Task                           | Deliverables                                                                    | Tests             | Done-when              |
+| ------------------------------ | ------------------------------------------------------------------------------- | ----------------- | ---------------------- |
+| **E9-S3-01** Review moderation | service (`approve`, `reject`, `hide`), audit-logged, aggregate rating recompute | I: TC-E9S3-01..03 | only approved counted  |
+| **E9-S3-02** Admin UI          | `/admin/reviews` queue; completes E2E-06                                        | E                 | visible after approval |
 
 Test cases: TC-E9S3-01 approve → visible, rating aggregate updated · -02 reject → never visible · -03 non-admin → denied.
 
 ---
 
-### BL-E7 — Vendor team *(Could)*
+### BL-E7 — Vendor team _(Could)_
 
-#### E7-S1 — Manage team members *(UC-27)*
+#### E7-S1 — Manage team members _(UC-27)_
+
 **Acceptance:** only OWNER manages members · STAFF may manage listings/availability/bookings but not team, payout config or onboarding · invite links an existing user as `VendorMember(STAFF)`.
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
+| Task                      | Deliverables                                                                        | Tests                            | Done-when                  |
+| ------------------------- | ----------------------------------------------------------------------------------- | -------------------------------- | -------------------------- |
 | **E7-S1-01** Team service | add/remove staff, permission matrix in one table (`lib/auth/vendor-permissions.ts`) | U: matrix; I: TC-E7S1-01/-02/-03 | matrix enforced at service |
-| **E7-S1-02** UI | `/vendor/team` | E | owner-only |
+| **E7-S1-02** UI           | `/vendor/team`                                                                      | E                                | owner-only                 |
 
 Test cases: TC-E7S1-01 owner adds staff → `VendorMember(STAFF)` · -02 staff adds member → denied · -03 staff edits availability → allowed.
 
@@ -907,11 +952,11 @@ Test cases: TC-E7S1-01 owner adds staff → `VendorMember(STAFF)` · -02 staff a
 
 ### X — Remaining e2e journeys & hardening
 
-| Task | Deliverables | Tests | Done-when |
-|---|---|---|---|
-| **X-01** Close journey gaps | implement any of E2E-01..09 not yet covered by their stories | E | all nine pass in CI |
-| **X-02** Security pass | review CR-1/2/8/9 across routes; check rate-limit header handling behind proxy (Coolify/Traefik `x-forwarded-for`); CSP/headers | I/E negative tests | findings fixed or logged |
-| **X-03** Observability & ops docs | structured logging, Sentry hook, runbook for webhook replay and reconciliation | — | docs merged |
+| Task                              | Deliverables                                                                                                                    | Tests              | Done-when                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ------------------------ |
+| **X-01** Close journey gaps       | implement any of E2E-01..09 not yet covered by their stories                                                                    | E                  | all nine pass in CI      |
+| **X-02** Security pass            | review CR-1/2/8/9 across routes; check rate-limit header handling behind proxy (Coolify/Traefik `x-forwarded-for`); CSP/headers | I/E negative tests | findings fixed or logged |
+| **X-03** Observability & ops docs | structured logging, Sentry hook, runbook for webhook replay and reconciliation                                                  | —                  | docs merged              |
 
 ---
 
@@ -928,12 +973,12 @@ Test cases: TC-E7S1-01 owner adds staff → `VendorMember(STAFF)` · -02 staff a
 
 ## 11. Deviations log (append as you go)
 
-| Date | Task | Deviation | Reason | Follow-up |
-|---|---|---|---|---|
-| 2026-11-15 | E0-S1 | Resending a verification email does not invalidate earlier links | Better Auth tokens are stateless JWTs; expiry is 1 h | none for MVP; revisit if needed |
-| 2026-11-15 | E0-S1 | Interim in-process email queue (non-durable) | pg-boss deferred to E0-S0-01 | E0-S0-01 replaces it |
-| 2026-11-15 | E0-S1 | `@prisma/adapter-pg` used in tests with classic engine; migration hand-written | no Prisma engines in sandbox | confirm on dev machine: `prisma migrate dev` shows no drift |
-| 2026-11-15 | E0-S1 | Links to `/sign-in` and `/forgot-password` in "already registered" email | pages belong to E0-S2 | fixed in E0-S2-05 |
+| Date       | Task  | Deviation                                                                      | Reason                                               | Follow-up                                                   |
+| ---------- | ----- | ------------------------------------------------------------------------------ | ---------------------------------------------------- | ----------------------------------------------------------- |
+| 2026-11-15 | E0-S1 | Resending a verification email does not invalidate earlier links               | Better Auth tokens are stateless JWTs; expiry is 1 h | none for MVP; revisit if needed                             |
+| 2026-11-15 | E0-S1 | Interim in-process email queue (non-durable)                                   | pg-boss deferred to E0-S0-01                         | E0-S0-01 replaces it                                        |
+| 2026-11-15 | E0-S1 | `@prisma/adapter-pg` used in tests with classic engine; migration hand-written | no Prisma engines in sandbox                         | confirm on dev machine: `prisma migrate dev` shows no drift |
+| 2026-11-15 | E0-S1 | Links to `/sign-in` and `/forgot-password` in "already registered" email       | pages belong to E0-S2                                | fixed in E0-S2-05                                           |
 
 ---
 
