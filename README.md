@@ -177,7 +177,24 @@ pnpm typecheck
 pnpm build
 ```
 
+Tests use Vitest: `pnpm test:unit` needs nothing external, `pnpm test:integration`
+needs `TEST_DATABASE_URL` pointing at a **direct/session** Postgres whose
+database name contains `test`.
+
 Commit and PR conventions are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Background jobs
+
+Background work runs on pg-boss, in a separate worker process:
+
+```bash
+pnpm worker        # consumes jobs; requires EMAIL_OUTBOX_DIR until Resend lands
+pnpm jobs:plans    # prints the pg-boss schema SQL committed as a migration
+```
+
+The pg-boss schema lives in `prisma/migrations/*_pg_boss` and is applied by
+`prisma migrate deploy`. Runtime instances run with `migrate: false`, so no DDL
+happens at boot and the database role does not need `CREATE` privileges.
 
 ## Documentation
 
