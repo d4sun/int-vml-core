@@ -9,10 +9,15 @@ import {
   consumeAccountAttempt,
   THROTTLE_MESSAGE,
 } from "@/lib/auth/account-throttle"
+import {
+  RESET_PASSWORD_PATH,
+  settleAfterPasswordReset,
+} from "@/lib/auth/password-reset"
 import { VERIFICATION_CALLBACK_PATH } from "@/lib/auth/verification"
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
+  forgotPasswordSchema,
   loginSchema,
   passwordSchema,
   registerSchema,
@@ -39,6 +44,11 @@ export const SESSION_POLICY = {
  * These replace Better Auth's built-in 3 requests / 10 s sign-up rule.
  */
 export const AUTH_RATE_LIMITS = {
+  requestPasswordReset: {
+    path: "/request-password-reset",
+    window: 60,
+    max: 3,
+  },
   signIn: { path: "/sign-in/email", window: 60, max: 10 },
   signUp: { path: "/sign-up/email", window: 60, max: 5 },
   resendVerification: { path: "/send-verification-email", window: 60, max: 3 },
@@ -87,7 +97,13 @@ export function createAuth(deps: AuthDeps) {
     ...(deps.replyTo ? { replyTo: deps.replyTo } : {}),
   })
 
-  return betterAuth({
+  // `onPasswordReset` needs the adapter, which only exists once Better Auth
+  // has been built; it is filled in right after construction below.
+  const holder: {
+    adapter?: Promise<Parameters<typeof settleAfterPasswordReset>[0]>
+  } = {}
+
+  const auth = betterAuth({
     appName: "VisitMyLondon",
     baseURL: deps.baseURL,
     secret: requireAuthSecret(deps.secret),
@@ -117,6 +133,10 @@ export function createAuth(deps: AuthDeps) {
       enabled: true,
       storage: "database",
       customRules: {
+        [AUTH_RATE_LIMITS.requestPasswordReset.path]: {
+          window: AUTH_RATE_LIMITS.requestPasswordReset.window,
+          max: AUTH_RATE_LIMITS.requestPasswordReset.max,
+        },
         [AUTH_RATE_LIMITS.signIn.path]: {
           window: AUTH_RATE_LIMITS.signIn.window,
           max: AUTH_RATE_LIMITS.signIn.max,
@@ -141,6 +161,11 @@ export function createAuth(deps: AuthDeps) {
       resetPasswordTokenExpiresIn: RESET_TOKEN_TTL_SECONDS,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: senders.sendResetPassword,
+      onPasswordReset: async ({ user }) => {
+        const adapter = await holder.adapter
+
+        if (adapter) await settleAfterPasswordReset(adapter, user)
+      },
     },
 
     emailVerification: {
@@ -180,6 +205,37 @@ export function createAuth(deps: AuthDeps) {
           }
 
           return { context: { ...ctx, body: { ...ctx.body, ...parsed.data } } }
+        }
+
+        if (ctx.path === "/request-password-reset") {
+          const parsed = forgotPasswordSchema.safeParse(ctx.body)
+
+          if (!parsed.success) {
+            throw validationError(
+              parsed.error.issues[0]?.message ?? "Enter a valid email address"
+            )
+          }
+
+          return {
+            context: {
+              ...ctx,
+              body: {
+                ...ctx.body,
+                ...parsed.data,
+                redirectTo: RESET_PASSWORD_PATH,
+              },
+            },
+          }
+        }
+
+        // The emailed link's own callback is never trusted either.
+        if (ctx.path === "/reset-password/:token") {
+          return {
+            context: {
+              ...ctx,
+              query: { ...ctx.query, callbackURL: RESET_PASSWORD_PATH },
+            },
+          }
         }
 
         if (ctx.path === "/sign-up/email") {
@@ -246,6 +302,10 @@ export function createAuth(deps: AuthDeps) {
       }),
     },
   })
+
+  holder.adapter = auth.$context.then((context) => context.adapter)
+
+  return auth
 }
 
 export type Auth = ReturnType<typeof createAuth>
