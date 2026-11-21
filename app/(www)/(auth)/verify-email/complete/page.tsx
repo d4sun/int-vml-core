@@ -21,7 +21,8 @@ export default async function VerifyEmailCompletePage({
   searchParams: SearchParams
 }) {
   const { error } = await searchParams
-  const session = await getAuth().api.getSession({ headers: await headers() })
+  const requestHeaders = await headers()
+  const session = await getAuth().api.getSession({ headers: requestHeaders })
 
   // An absent `error` proves nothing on its own: anyone can open this URL, so
   // success also requires the signed-in user's email to be verified.
