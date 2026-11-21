@@ -22,7 +22,13 @@ export type AuthHarness = ReturnType<typeof makeHarness>
 export function makeHarness(
   overrides: Partial<Pick<AuthDeps, "database">> = {}
 ) {
-  const db: MemoryDb = { user: [], session: [], account: [], verification: [] }
+  const db: MemoryDb = {
+    user: [],
+    session: [],
+    account: [],
+    verification: [],
+    rateLimit: [],
+  }
   const queue = new InProcessEmailQueue()
   let queueDown = false
 
