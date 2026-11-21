@@ -33,17 +33,80 @@ model User {
   id            String       @id @default(uuid())
   email         String       @unique
   emailVerified Boolean      @default(false)
-  name          String?
+  name          String
   image         String?
   platformRole  PlatformRole @default(TOURIST)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
+  sessions          Session[]
+  accounts          Account[]
   vendorMemberships VendorMember[]
   bookings          Booking[]
   trips             Trip[]
   reviews           Review[]
   holds             Hold[]
+}
+
+// ---------------------------------------------------------------------------
+// Better Auth identity
+// ---------------------------------------------------------------------------
+// Better Auth owns these tables. Model names stay PascalCase so the Prisma
+// client exposes `prisma.session`, `prisma.account`, etc. Field names and
+// nullability follow Better Auth's core schema; do not rename them without
+// updating `lib/auth/config.ts`.
+
+model Session {
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model RateLimit {
+  id          String @id @default(uuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt
 }
 
 enum VendorRole {
