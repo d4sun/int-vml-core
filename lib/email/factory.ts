@@ -1,3 +1,4 @@
+import { getEnv } from "../env"
 import { BrevoEmailSender } from "./brevo-sender"
 import { FileEmailSender } from "./file-sender"
 import type { EmailSender } from "./types"
@@ -20,7 +21,7 @@ export type EmailSenderSelection = {
  * - no key elsewhere → `FileEmailSender` outbox for dev and e2e.
  */
 export function createEmailSender(
-  env: EmailEnv = process.env
+  env: EmailEnv = getEnv()
 ): EmailSenderSelection {
   if (env.BREVO_API_KEY) {
     if (!env.EMAIL_FROM) {
