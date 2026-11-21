@@ -84,6 +84,27 @@ export function makeHarness(
       request("/sign-up/email", { body, ...(ip ? { ip } : {}) }),
     signIn: (body: Record<string, unknown>, ip?: string) =>
       request("/sign-in/email", { body, ...(ip ? { ip } : {}) }),
+    /** Registers a user and opens their verification link. */
+    async registerVerified(
+      overrides: { email?: string; password?: string } = {}
+    ) {
+      const email = overrides.email ?? uniqueEmail()
+      const password = overrides.password ?? VALID_PASSWORD
+
+      await request("/sign-up/email", {
+        body: { name: "Ada Lovelace", email, password },
+      })
+
+      const message = queue.messages.findLast(
+        (m) => m.tags?.kind === "verification" && m.to === email
+      )
+
+      if (!message) throw new Error("No verification email was enqueued")
+
+      await this.follow(extractLink(message))
+
+      return { email, password }
+    },
     /** Emails enqueued so far whose tag matches `kind`. */
     emails: (kind: string): EmailMessage[] =>
       queue.messages.filter((message) => message.tags?.kind === kind),
@@ -110,4 +131,19 @@ export function extractLink(message: EmailMessage): string {
   if (!match) throw new Error("No link found in email body")
 
   return match[0].replace(/&amp;/g, "&")
+}
+
+/** The `name=value` pair of the session cookie set by a response, if any. */
+export function sessionCookie(response: Response): string | undefined {
+  return response.headers
+    .getSetCookie()
+    .find((cookie) => cookie.includes("session_token="))
+    ?.split(";")[0]
+}
+
+/** The raw Set-Cookie header of the session cookie, with its attributes. */
+export function sessionCookieHeader(response: Response): string | undefined {
+  return response.headers
+    .getSetCookie()
+    .find((cookie) => cookie.includes("session_token="))
 }
