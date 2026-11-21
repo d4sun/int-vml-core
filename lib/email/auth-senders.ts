@@ -34,8 +34,10 @@ export type AuthEmailSenderOptions = {
  *
  * E0-S1-03 ships the senders and their unit tests; E0-S1-02 passes them to
  * `betterAuth()` (`emailVerification.sendVerificationEmail` and
- * `emailAndPassword.sendResetPassword`). Enqueue failures reject on purpose so
- * Better Auth surfaces a failed request instead of silently dropping mail.
+ * `emailAndPassword.sendResetPassword`). Enqueue failures reject on purpose.
+ * Better Auth awaits the resend endpoint, so a failure surfaces there, but it
+ * runs the sign-up send as a background task and only logs a failure, so
+ * sign-up during an outage succeeds without mail and relies on resend.
  */
 export function createAuthEmailSenders(
   queue: EmailQueue,

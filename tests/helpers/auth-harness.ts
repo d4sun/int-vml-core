@@ -24,10 +24,16 @@ export function makeHarness(
 ) {
   const db: MemoryDb = { user: [], session: [], account: [], verification: [] }
   const queue = new InProcessEmailQueue()
+  let queueDown = false
 
   const auth = createAuth({
     database: overrides.database ?? memoryAdapter(db),
-    emailQueue: queue,
+    emailQueue: {
+      async enqueue(message) {
+        if (queueDown) throw new Error("simulated queue outage")
+        return queue.enqueue(message)
+      },
+    },
     baseURL: TEST_BASE_URL,
     secret: TEST_SECRET,
   })
@@ -56,6 +62,18 @@ export function makeHarness(
     db,
     queue,
     request,
+    /** Opens an emailed link (absolute URL) through the auth handler. */
+    follow(link: string, ip?: string): Promise<Response> {
+      const url = new URL(link)
+
+      return request(url.pathname.replace(/^\/api\/auth/, "") + url.search, {
+        method: "GET",
+        ...(ip ? { ip } : {}),
+      })
+    },
+    setQueueDown(down: boolean) {
+      queueDown = down
+    },
     signUp: (body: Record<string, unknown>, ip?: string) =>
       request("/sign-up/email", { body, ...(ip ? { ip } : {}) }),
     signIn: (body: Record<string, unknown>, ip?: string) =>

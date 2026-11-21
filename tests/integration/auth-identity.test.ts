@@ -29,11 +29,7 @@ beforeEach(async () => {
 async function registerAndVerify(email: string) {
   await h.signUp({ name: "Ada Lovelace", email, password: VALID_PASSWORD })
 
-  const url = new URL(extractLink(h.emails("verification")[0]!))
-
-  return h.request(url.pathname.replace(/^\/api\/auth/, "") + url.search, {
-    method: "GET",
-  })
+  return h.follow(extractLink(h.emails("verification")[0]!))
 }
 
 describe("Better Auth identity on Postgres", () => {
@@ -117,5 +113,42 @@ describe("Better Auth identity on Postgres", () => {
 
     const user = await prisma.user.findUnique({ where: { email } })
     expect(user?.platformRole ?? "TOURIST").toBe("TOURIST")
+  })
+
+  it("TC-E0S1-29: opening the verification link twice leaves one session and a verified user", async () => {
+    const email = uniqueEmail()
+
+    await h.signUp({ name: "Ada", email, password: VALID_PASSWORD })
+    const link = extractLink(h.emails("verification")[0]!)
+
+    await h.follow(link)
+    await h.follow(link)
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { email },
+      include: { sessions: true },
+    })
+
+    expect(user.emailVerified).toBe(true)
+    expect(user.sessions).toHaveLength(1)
+  })
+
+  it("TC-E0S1-30: a resent link verifies the user and redirects to the completion page", async () => {
+    const email = uniqueEmail()
+
+    await h.signUp({ name: "Ada", email, password: VALID_PASSWORD })
+    await h.request("/send-verification-email", { body: { email } })
+
+    const [, resent] = h.emails("verification")
+    const response = await h.follow(extractLink(resent!))
+
+    const target = new URL(
+      response.headers.get("location") ?? "",
+      "http://localhost:3000"
+    )
+    expect(target.pathname).toBe("/verify-email/complete")
+    expect(
+      (await prisma.user.findUniqueOrThrow({ where: { email } })).emailVerified
+    ).toBe(true)
   })
 })
