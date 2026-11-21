@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { memoryAdapter } from "better-auth/adapters/memory"
 import { createAuth, type AuthDeps } from "@/lib/auth/config"
 import { InProcessEmailQueue } from "@/lib/email/in-process-queue"
+import type { SessionSource } from "@/lib/auth/guards"
 import type { EmailMessage } from "@/lib/email/types"
 
 export const TEST_BASE_URL = "http://localhost:3000"
@@ -104,6 +105,25 @@ export function makeHarness(
       await this.follow(extractLink(message))
 
       return { email, password }
+    },
+    /**
+     * Signs in and returns a `SessionSource` backed by the real cookie, so
+     * guards and services run against genuine Better Auth sessions.
+     */
+    async sessionFor(email: string, password = VALID_PASSWORD) {
+      const cookie = sessionCookie(
+        await request("/sign-in/email", {
+          body: { email, password },
+          ip: freshIp(),
+        })
+      )
+
+      if (!cookie) throw new Error(`Could not sign in ${email}`)
+
+      const source: SessionSource = () =>
+        auth.api.getSession({ headers: new Headers({ cookie }) })
+
+      return source
     },
     /** Emails enqueued so far whose tag matches `kind`. */
     emails: (kind: string): EmailMessage[] =>
