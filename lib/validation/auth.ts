@@ -45,3 +45,48 @@ export const registerSchema = z.object({
 })
 
 export type RegisterInput = z.infer<typeof registerSchema>
+
+/**
+ * Sign-in deliberately applies no password policy: existing credentials must
+ * keep working if the policy tightens, and a policy message here would tell an
+ * attacker what a valid password looks like. The upper bound still caps the
+ * hashing work a single request can cause.
+ */
+export const loginSchema = z.object({
+  email: emailSchema,
+  password: z
+    .string()
+    .min(1, "Enter your password")
+    .max(
+      PASSWORD_MAX_LENGTH,
+      `Password must be at most ${PASSWORD_MAX_LENGTH} characters`
+    ),
+})
+
+export type LoginInput = z.infer<typeof loginSchema>
+
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+})
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
+
+/** Field names match Better Auth's `/reset-password` body. */
+export const resetPasswordSchema = z.object({
+  token: z.string().trim().min(1, "This reset link is missing its token"),
+  newPassword: passwordSchema,
+})
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
+
+/**
+ * Editable profile fields. Strict on purpose: a payload carrying anything else
+ * (notably `platformRole`, `email` or `emailVerified`) is rejected outright
+ * instead of silently ignored, so tampering is visible and can never reach the
+ * database through a spread.
+ */
+export const profileSchema = z.strictObject({
+  name: nameSchema,
+})
+
+export type ProfileInput = z.infer<typeof profileSchema>
