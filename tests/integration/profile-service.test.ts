@@ -9,12 +9,7 @@ import {
   updateProfile,
 } from "@/lib/services/profile"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
-import {
-  freshIp,
-  makeHarness,
-  sessionCookie,
-  type AuthHarness,
-} from "../helpers/auth-harness"
+import { makeHarness, type AuthHarness } from "../helpers/auth-harness"
 
 let prisma: PrismaClient
 let h: AuthHarness
@@ -37,11 +32,7 @@ async function userSession(name: string) {
   const { email, password } = await h.registerVerified()
   await prisma.user.update({ where: { email }, data: { name } })
 
-  const cookie = sessionCookie(await h.signIn({ email, password }, freshIp()))!
-  const source: SessionSource = () =>
-    h.auth.api.getSession({ headers: new Headers({ cookie }) })
-
-  return { email, source }
+  return { email, source: await h.sessionFor(email, password) }
 }
 
 const deps = (session: SessionSource) => ({
