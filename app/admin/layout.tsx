@@ -13,7 +13,7 @@ export default async function AdminLayout({
 }: {
   children: ReactNode
 }) {
-  await enforceSurface("admin", "/admin")
+  await enforceSurface("admin")
 
   return children
 }
