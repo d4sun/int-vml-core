@@ -16,6 +16,16 @@ export const VERIFICATION_TOKEN_TTL_SECONDS = 60 * 60
 export const RESET_TOKEN_TTL_SECONDS = 60 * 60
 export const MIN_SECRET_LENGTH = 32
 
+/**
+ * Per client IP, per path, in a rolling window (CR-8). Stored in Postgres
+ * (`RateLimit`), so there is no Redis dependency and limits survive restarts.
+ * These replace Better Auth's built-in 3 requests / 10 s sign-up rule.
+ */
+export const AUTH_RATE_LIMITS = {
+  signUp: { path: "/sign-up/email", window: 60, max: 5 },
+  resendVerification: { path: "/send-verification-email", window: 60, max: 3 },
+} as const
+
 export type AuthDeps = {
   /** Better Auth database adapter; see `prismaAuthDatabase` for production. */
   database: NonNullable<BetterAuthOptions["database"]>
@@ -75,6 +85,22 @@ export function createAuth(deps: AuthDeps) {
           required: false,
           defaultValue: "TOURIST",
           input: false,
+        },
+      },
+    },
+
+    rateLimit: {
+      // Off by default outside production; the limits must hold everywhere.
+      enabled: true,
+      storage: "database",
+      customRules: {
+        [AUTH_RATE_LIMITS.signUp.path]: {
+          window: AUTH_RATE_LIMITS.signUp.window,
+          max: AUTH_RATE_LIMITS.signUp.max,
+        },
+        [AUTH_RATE_LIMITS.resendVerification.path]: {
+          window: AUTH_RATE_LIMITS.resendVerification.window,
+          max: AUTH_RATE_LIMITS.resendVerification.max,
         },
       },
     },
