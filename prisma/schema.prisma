@@ -46,6 +46,7 @@ model User {
   trips             Trip[]
   reviews           Review[]
   holds             Hold[]
+  auditLogs         AuditLog[]
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +160,25 @@ model Vendor {
   reviews      Review[]
 
   @@index([status])
+}
+
+// Append-only record of privileged actions (vendor approval, moderation,
+// refunds). `actorId` is nulled, not cascaded, when a user is deleted so the
+// trail survives. Rows are written in the same transaction as the change.
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String   // e.g. "vendor.approved"
+  entityType String   // e.g. "Vendor"
+  entityId   String
+  meta       Json?
+  at         DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, at])
+  @@index([actorId])
+  @@index([at])
 }
 
 enum CategoryType {
