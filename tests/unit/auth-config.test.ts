@@ -20,15 +20,6 @@ function users(h: AuthHarness): DbUser[] {
   return h.db.user as unknown as DbUser[]
 }
 
-/** Follows an emailed link through the auth handler. */
-function follow(h: AuthHarness, link: string): Promise<Response> {
-  const url = new URL(link)
-
-  return h.request(url.pathname.replace(/^\/api\/auth/, "") + url.search, {
-    method: "GET",
-  })
-}
-
 async function register(h: AuthHarness, email = uniqueEmail()) {
   const response = await h.signUp({
     name: "Ada Lovelace",
@@ -151,7 +142,7 @@ describe("auth config: email verification", () => {
     const { email } = await register(h)
 
     const link = extractLink(h.emails("verification")[0]!)
-    const response = await follow(h, link)
+    const response = await h.follow(link)
 
     expect(response.status).toBeLessThan(400)
     expect(users(h).find((user) => user.email === email)?.emailVerified).toBe(
@@ -166,7 +157,7 @@ describe("auth config: email verification", () => {
 
     const link = extractLink(h.emails("verification")[0]!)
     const tampered = link.replace(/token=[^&]+/, "token=not-a-real-token")
-    const response = await follow(h, tampered)
+    const response = await h.follow(tampered)
 
     expect(response.headers.get("set-cookie") ?? "").not.toMatch(
       /session_token/
@@ -184,7 +175,7 @@ describe("auth config: email verification", () => {
     const link = extractLink(h.emails("verification")[0]!)
 
     vi.setSystemTime(Date.now() + 61 * 60 * 1000)
-    const response = await follow(h, link)
+    const response = await h.follow(link)
 
     expect(response.headers.get("set-cookie") ?? "").not.toMatch(
       /session_token/
@@ -211,7 +202,7 @@ describe("auth config: password reset policy", () => {
   it("TC-E0S1-10: a weak new password is rejected on reset", async () => {
     const h = makeHarness()
     const { email } = await register(h)
-    await follow(h, extractLink(h.emails("verification")[0]!))
+    await h.follow(extractLink(h.emails("verification")[0]!))
 
     await h.request("/request-password-reset", {
       body: { email, redirectTo: "/reset-password" },

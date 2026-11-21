@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { memoryAdapter } from "better-auth/adapters/memory"
 import { createAuth, type AuthDeps } from "@/lib/auth/config"
 import { InProcessEmailQueue } from "@/lib/email/in-process-queue"
+import type { SessionSource } from "@/lib/auth/guards"
 import type { EmailMessage } from "@/lib/email/types"
 
 export const TEST_BASE_URL = "http://localhost:3000"
@@ -22,12 +23,24 @@ export type AuthHarness = ReturnType<typeof makeHarness>
 export function makeHarness(
   overrides: Partial<Pick<AuthDeps, "database">> = {}
 ) {
-  const db: MemoryDb = { user: [], session: [], account: [], verification: [] }
+  const db: MemoryDb = {
+    user: [],
+    session: [],
+    account: [],
+    verification: [],
+    rateLimit: [],
+  }
   const queue = new InProcessEmailQueue()
+  let queueDown = false
 
   const auth = createAuth({
     database: overrides.database ?? memoryAdapter(db),
-    emailQueue: queue,
+    emailQueue: {
+      async enqueue(message) {
+        if (queueDown) throw new Error("simulated queue outage")
+        return queue.enqueue(message)
+      },
+    },
     baseURL: TEST_BASE_URL,
     secret: TEST_SECRET,
   })
@@ -56,10 +69,62 @@ export function makeHarness(
     db,
     queue,
     request,
+    /** Opens an emailed link (absolute URL) through the auth handler. */
+    follow(link: string, ip?: string): Promise<Response> {
+      const url = new URL(link)
+
+      return request(url.pathname.replace(/^\/api\/auth/, "") + url.search, {
+        method: "GET",
+        ...(ip ? { ip } : {}),
+      })
+    },
+    setQueueDown(down: boolean) {
+      queueDown = down
+    },
     signUp: (body: Record<string, unknown>, ip?: string) =>
       request("/sign-up/email", { body, ...(ip ? { ip } : {}) }),
     signIn: (body: Record<string, unknown>, ip?: string) =>
       request("/sign-in/email", { body, ...(ip ? { ip } : {}) }),
+    /** Registers a user and opens their verification link. */
+    async registerVerified(
+      overrides: { email?: string; password?: string } = {}
+    ) {
+      const email = overrides.email ?? uniqueEmail()
+      const password = overrides.password ?? VALID_PASSWORD
+
+      await request("/sign-up/email", {
+        body: { name: "Ada Lovelace", email, password },
+      })
+
+      const message = queue.messages.findLast(
+        (m) => m.tags?.kind === "verification" && m.to === email
+      )
+
+      if (!message) throw new Error("No verification email was enqueued")
+
+      await this.follow(extractLink(message))
+
+      return { email, password }
+    },
+    /**
+     * Signs in and returns a `SessionSource` backed by the real cookie, so
+     * guards and services run against genuine Better Auth sessions.
+     */
+    async sessionFor(email: string, password = VALID_PASSWORD) {
+      const cookie = sessionCookie(
+        await request("/sign-in/email", {
+          body: { email, password },
+          ip: freshIp(),
+        })
+      )
+
+      if (!cookie) throw new Error(`Could not sign in ${email}`)
+
+      const source: SessionSource = () =>
+        auth.api.getSession({ headers: new Headers({ cookie }) })
+
+      return source
+    },
     /** Emails enqueued so far whose tag matches `kind`. */
     emails: (kind: string): EmailMessage[] =>
       queue.messages.filter((message) => message.tags?.kind === kind),
@@ -86,4 +151,19 @@ export function extractLink(message: EmailMessage): string {
   if (!match) throw new Error("No link found in email body")
 
   return match[0].replace(/&amp;/g, "&")
+}
+
+/** The `name=value` pair of the session cookie set by a response, if any. */
+export function sessionCookie(response: Response): string | undefined {
+  return response.headers
+    .getSetCookie()
+    .find((cookie) => cookie.includes("session_token="))
+    ?.split(";")[0]
+}
+
+/** The raw Set-Cookie header of the session cookie, with its attributes. */
+export function sessionCookieHeader(response: Response): string | undefined {
+  return response.headers
+    .getSetCookie()
+    .find((cookie) => cookie.includes("session_token="))
 }

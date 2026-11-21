@@ -85,8 +85,28 @@ jobs:
   e2e:
     name: Playwright
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     needs: checks
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vml_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vml_e2e
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/vml_e2e
+      JOBS_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vml_e2e
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-in-production
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -98,20 +118,20 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Detect Playwright
-        id: playwright
-        run: |
-          if ls playwright.config.* >/dev/null 2>&1; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
       - name: Install browsers
-        if: steps.playwright.outputs.enabled == 'true'
         run: pnpm exec playwright install --with-deps chromium
+      # Playwright migrates and seeds the database, starts the jobs worker
+      # (email goes to a file outbox) and builds and serves the app.
       - name: Run e2e
-        if: steps.playwright.outputs.enabled == 'true'
         run: pnpm test:e2e
-      - name: No Playwright config yet
-        if: steps.playwright.outputs.enabled != 'true'
-        run: echo "Playwright is not configured yet; E0-S1-07 activates this job."
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
