@@ -4,6 +4,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma"
 import { APIError, createAuthMiddleware } from "better-auth/api"
 import { createAuthEmailSenders } from "@/lib/email/auth-senders"
 import type { EmailQueue } from "@/lib/email/queue"
+import { VERIFICATION_CALLBACK_PATH } from "@/lib/auth/verification"
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -110,7 +111,36 @@ export function createAuth(deps: AuthDeps) {
             )
           }
 
-          return { context: { ...ctx, body: { ...ctx.body, ...parsed.data } } }
+          return {
+            context: {
+              ...ctx,
+              body: {
+                ...ctx.body,
+                ...parsed.data,
+                callbackURL: VERIFICATION_CALLBACK_PATH,
+              },
+            },
+          }
+        }
+
+        // Verification links always land on one page, never on a client- or
+        // link-supplied destination.
+        if (ctx.path === "/send-verification-email") {
+          return {
+            context: {
+              ...ctx,
+              body: { ...ctx.body, callbackURL: VERIFICATION_CALLBACK_PATH },
+            },
+          }
+        }
+
+        if (ctx.path === "/verify-email") {
+          return {
+            context: {
+              ...ctx,
+              query: { ...ctx.query, callbackURL: VERIFICATION_CALLBACK_PATH },
+            },
+          }
         }
 
         if (ctx.path === "/reset-password" || ctx.path === "/change-password") {
