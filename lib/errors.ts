@@ -1,5 +1,10 @@
 export type AppErrorCode =
-  "NOT_FOUND" | "FORBIDDEN" | "CONFLICT" | "VALIDATION" | "INTERNAL"
+  | "UNAUTHENTICATED"
+  | "NOT_FOUND"
+  | "FORBIDDEN"
+  | "CONFLICT"
+  | "VALIDATION"
+  | "INTERNAL"
 
 export type FieldErrors = Record<string, string[]>
 
@@ -32,6 +37,13 @@ export class AppError extends Error {
     this.status = status
     this.details = options.details
     this.fieldErrors = options.fieldErrors
+  }
+}
+
+/** No valid session: the caller must sign in. Distinct from FORBIDDEN. */
+export class UnauthenticatedError extends AppError {
+  constructor(message = "Sign in to continue", options: AppErrorOptions = {}) {
+    super(message, "UNAUTHENTICATED", 401, options)
   }
 }
 
