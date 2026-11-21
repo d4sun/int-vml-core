@@ -7,6 +7,7 @@ import {
   isAppError,
   NotFoundError,
   toAppError,
+  UnauthenticatedError,
   ValidationError,
 } from "@/lib/errors"
 import { toActionState, toHttpResponse, runAction } from "@/lib/actions/result"
@@ -15,6 +16,11 @@ import { err, isOk, mapResult, ok, unwrapOr } from "@/lib/result"
 describe("typed errors", () => {
   it("TC-E0S0-05: maps each error class to its status and code", () => {
     const table = [
+      {
+        error: new UnauthenticatedError(),
+        status: 401,
+        code: "UNAUTHENTICATED",
+      },
       { error: new NotFoundError(), status: 404, code: "NOT_FOUND" },
       { error: new ForbiddenError(), status: 403, code: "FORBIDDEN" },
       { error: new ConflictError(), status: 409, code: "CONFLICT" },
