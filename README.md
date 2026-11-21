@@ -43,7 +43,7 @@ cp .env.example .env
 pnpm prisma:generate
 pnpm prisma:migrate
 
-# 4. (Optional) Create the seed vendor/listing/product/availability
+# 4. (Optional) Create the seed accounts, vendor, listing, product and a slot
 pnpm db:seed
 
 # 5. Start the dev server
@@ -65,7 +65,23 @@ pnpm db:seed                # run prisma/seed.ts
 
 - Schema: [`prisma/schema.prisma`](prisma/schema.prisma)
 - Migrations: `prisma/migrations/`
-- Seed: [`prisma/seed.ts`](prisma/seed.ts)
+- Seed: [`prisma/seed.ts`](prisma/seed.ts) (logic in [`prisma/seed-core.ts`](prisma/seed-core.ts))
+
+### Seed accounts (development and test only)
+
+`pnpm db:seed` is **idempotent** (run it as often as you like) and creates a vendor, a published listing with one product and a bookable slot, and four verified accounts:
+
+| Email                   | Platform role | Vendor role (Seed Tours Co.) |
+| ----------------------- | ------------- | ---------------------------- |
+| `admin@seed.vml.test`   | `ADMIN`       | —                            |
+| `owner@seed.vml.test`   | `VENDOR`      | `OWNER`                      |
+| `staff@seed.vml.test`   | `VENDOR`      | `STAFF`                      |
+| `tourist@seed.vml.test` | `TOURIST`     | —                            |
+
+All four share one **publicly known** password, `Seed-password-1`; set `SEED_PASSWORD` to use another (re-running updates the stored hash). The `.test` domain is reserved, so these addresses can never belong to a real person.
+
+> **Never seed a shared or production database.** These are privileged accounts with a published password. The seed command refuses to run when `NODE_ENV=production`, but that is a safety net, not a substitute for pointing `DATABASE_URL` at the right database. Re-running the seed also re-asserts the seeded roles and the vendor's `APPROVED` status.
+
 - **`prisma-8.md` is a stale template document** describing a different ORM. Ignore it; trust `schema.prisma` and `package.json`.
 
 ## Environment variables
