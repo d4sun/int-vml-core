@@ -4,7 +4,7 @@ Customer-facing web app for **Visit My London** — an independent London travel
 
 This repository is one Next.js application with a single PostgreSQL database accessed through Prisma. The public tourist site lives in the `app/(www)` route group; vendor and admin surfaces will be added as role-guarded route groups that share the same domain layer.
 
-> **Status:** UI and foundations. The public pages (home, category, listing and event) are fully rendered from mock data, and the complete domain schema is migrated and seeded. Authentication, vendor/admin surfaces, Stripe checkout, live search/map, emails and jobs are **not wired up yet**. See [docs/WEBAPP_IMPLEMENTATION_PLAN.md](docs/WEBAPP_IMPLEMENTATION_PLAN.md) for the build order.
+> **Status:** UI and foundations. The public pages (home, category, listing and event) are fully rendered from mock data, and the complete domain schema is migrated and seeded. Durable jobs and transactional email (Brevo or a dev outbox) are wired, with typed environment validation and email templates. Authentication, vendor/admin surfaces, Stripe checkout and live search/map are **not wired up yet**. See [docs/WEBAPP_IMPLEMENTATION_PLAN.md](docs/WEBAPP_IMPLEMENTATION_PLAN.md) for the build order.
 
 ## Tech stack
 
@@ -32,12 +32,11 @@ pnpm install
 
 # 2. Configure the environment
 cp .env.example .env
-# Edit .env and set both variables:
+# Edit .env and set the required variables:
 #   DATABASE_URL="postgresql://user:password@host:5432/mydb?pgbouncer=true"  # pooled, used at runtime
 #   DIRECT_URL="postgresql://user:password@host:5432/mydb"                  # direct, used by migrations
+# Email and Better Auth values can stay blank until those features are needed.
 ```
-
-> `.env.example` currently documents `DATABASE_URL` only. `DIRECT_URL` is also required — `prisma/schema.prisma` declares `directUrl = env("DIRECT_URL")` for migrations.
 
 ```bash
 # 3. Generate the Prisma client and apply migrations
@@ -71,11 +70,20 @@ pnpm db:seed                # run prisma/seed.ts
 
 ## Environment variables
 
-| Variable             | Required | Purpose                                                 |
-| -------------------- | -------- | ------------------------------------------------------- |
-| `DATABASE_URL`       | Yes      | Pooled Postgres connection used by the running app.     |
-| `DIRECT_URL`         | Yes      | Direct/session connection used by `prisma migrate`.     |
-| `BETTER_AUTH_SECRET` | Later    | Reserved for Better Auth; not read until auth is wired. |
+| Variable             | Required           | Purpose                                                                  |
+| -------------------- | ------------------ | ------------------------------------------------------------------------ |
+| `DATABASE_URL`       | Yes                | Pooled Postgres connection used by the running app.                      |
+| `DIRECT_URL`         | Yes                | Direct/session connection used by `prisma migrate` and pg-boss.          |
+| `JOBS_DATABASE_URL`  | No                 | Override for pg-boss; defaults to `DIRECT_URL`.                          |
+| `BREVO_API_KEY`      | No                 | Enables Brevo delivery; requires `EMAIL_FROM`.                           |
+| `EMAIL_FROM`         | With Brevo         | Verified sender address.                                                 |
+| `EMAIL_FROM_NAME`    | No                 | Display name for the sender.                                             |
+| `EMAIL_OUTBOX_DIR`   | No                 | Dev/test outbox; defaults to `.tmp/email-outbox`.                        |
+| `BETTER_AUTH_SECRET` | Once auth is wired | Session signing secret; generate with `pnpm dlx auth@latest secret`.     |
+| `BETTER_AUTH_URL`    | No                 | Public origin for cookies and email links; defaults to `localhost:3000`. |
+| `TEST_DATABASE_URL`  | Integration tests  | Direct/session database whose name contains `test`.                      |
+
+All of these are validated by [`lib/env.ts`](lib/env.ts). Blank optional values in `.env.example` are treated as unset, so copying the file does not fail validation.
 
 `.env` files are gitignored. Storing secrets in them is fine for local development; production secrets belong in the deploy platform.
 
@@ -202,6 +210,10 @@ tests only — it appends messages to `EMAIL_OUTBOX_DIR/outbox.jsonl` so they ca
 be inspected without a provider account. Production fails fast if no transport
 is configured rather than dropping mail silently.
 
+Templates live in `lib/email/templates/*` and the auth email senders in
+`lib/email/auth-senders.ts`. The worker validates the environment through
+`lib/env.ts` before opening any connection.
+
 ## Documentation
 
 | Document                                                                 | Contents                                                                                                                                           |
@@ -215,14 +227,12 @@ is configured rather than dropping mail silently.
 
 The immediate roadmap (from the implementation plan):
 
-1. Typed environment surface (`lib/env.ts`) and a complete `.env.example`.
-2. Thin adapter skeletons for Stripe, email, storage and jobs.
-3. Test harness (Vitest + Playwright) and GitHub Actions CI.
-4. Better Auth wired, `User` model reconciled, RBAC guards.
-5. Vendor onboarding, listings/availability, then the booking + payments loop.
+1. Better Auth wired against the Prisma identity tables, with sessions and RBAC guards.
+2. Email verification flow and the register UI.
+3. Vendor onboarding, listings/availability, then the booking + payments loop.
+4. Stripe, storage and live search adapters.
 
 ## Notes
 
-- No tests or CI pipeline are configured yet.
 - The listing and event detail pages contain placeholder copy and Unsplash imagery for layout purposes only; replace before any public launch.
 - Dark-mode tokens exist, but the marketing screens were designed light-first and have not had a dark-mode design review.
