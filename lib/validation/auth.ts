@@ -79,6 +79,17 @@ export const resetPasswordSchema = z.object({
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 
+/** The reset form: the same rules plus a typed-twice confirmation. */
+export const resetPasswordFormSchema = z
+  .object({
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((values) => values.newPassword === values.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+  })
+
 /**
  * Editable profile fields. Strict on purpose: a payload carrying anything else
  * (notably `platformRole`, `email` or `emailVerified`) is rejected outright

@@ -32,7 +32,11 @@ export const requestSessionSource: SessionSource = async () => {
     import("@/lib/auth"),
   ])
 
-  return getAuth().api.getSession({ headers: await headers() })
+  // `headers()` first: it opts the caller into dynamic rendering before
+  // anything that could throw at build time (a missing auth secret) runs.
+  const requestHeaders = await headers()
+
+  return getAuth().api.getSession({ headers: requestHeaders })
 }
 
 const KNOWN_ROLES = new Set<string>(Object.values(PlatformRole))
