@@ -15,7 +15,7 @@ export default async function VendorPortalLayout({
 }: {
   children: ReactNode
 }) {
-  await enforceSurface("vendor", "/vendor")
+  await enforceSurface("vendor")
 
   return children
 }
