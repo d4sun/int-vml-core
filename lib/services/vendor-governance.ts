@@ -36,6 +36,9 @@ export type VendorGovernanceDeps = {
  * admins acting at once cannot both succeed: the loser gets a ConflictError
  * and no audit row.
  *
+ * Approving also promotes the vendor's owner(s) from TOURIST to VENDOR, in the
+ * same transaction; nothing else does.
+ *
  * The vendor's owner is emailed about the change by a job inserted in the same
  * transaction, so a transition cannot be saved without its email, nor email a
  * change that was rolled back. If that insert fails the whole change fails.
@@ -91,12 +94,41 @@ export async function transitionVendor(
       )
     }
 
+    // Approval is the only thing that makes an applicant a VENDOR. Only
+    // tourists are promoted (never an admin), and who was promoted is recorded.
+    const promoted: string[] = []
+
+    if (action === "approve") {
+      const owners = await tx.vendorMember.findMany({
+        where: {
+          vendorId,
+          role: "OWNER",
+          user: { platformRole: "TOURIST" },
+        },
+        select: { userId: true },
+      })
+
+      promoted.push(...owners.map((owner) => owner.userId))
+
+      if (promoted.length > 0) {
+        await tx.user.updateMany({
+          where: { id: { in: promoted }, platformRole: "TOURIST" },
+          data: { platformRole: "VENDOR" },
+        })
+      }
+    }
+
     const auditId = await record(tx, {
       actorId: actor.id,
       action: auditActionFor(action),
       entityType: "Vendor",
       entityId: vendorId,
-      meta: { from: vendor.status, to: next, ...(reason ? { reason } : {}) },
+      meta: {
+        from: vendor.status,
+        to: next,
+        ...(reason ? { reason } : {}),
+        ...(promoted.length > 0 ? { promotedUserIds: promoted } : {}),
+      },
     })
 
     await notifyVendorTransition(tx, emailQueue, {

@@ -24,6 +24,7 @@ export const VENDOR_ACTION_LABEL: Record<VendorAction, string> = {
 }
 
 const AUDIT_LABEL: Record<string, string> = {
+  "vendor.applied": "Applied",
   "vendor.approved": "Approved",
   "vendor.rejected": "Rejected",
   "vendor.suspended": "Suspended",
