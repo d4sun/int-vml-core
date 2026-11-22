@@ -25,6 +25,7 @@ export type EmailKind =
   | "vendor-rejected"
   | "vendor-suspended"
   | "vendor-reinstated"
+  | "vendor-application"
 
 type OutboxMessage = {
   to: string
@@ -107,6 +108,45 @@ export async function waitForEmail(
   return (await readOutbox()).filter(
     (m) => m.to === to && m.tags?.kind === kind
   )[index]!
+}
+
+/**
+ * Waits for a mail of a kind to `to` whose text satisfies `matches`. Use it
+ * for recipients who get many mails of one kind (the seeded admin), where an
+ * index would pick up another test's email.
+ */
+export async function waitForEmailMatching(
+  to: string,
+  kind: EmailKind,
+  matches: (message: OutboxMessage) => boolean
+): Promise<OutboxMessage> {
+  let found: OutboxMessage | undefined
+
+  await expect
+    .poll(
+      async () => {
+        found = (await readOutbox()).find(
+          (m) => m.to === to && m.tags?.kind === kind && matches(m)
+        )
+
+        return found !== undefined
+      },
+      { timeout: 30_000, message: `no matching ${kind} email for ${to}` }
+    )
+    .toBe(true)
+
+  return found!
+}
+
+/** How many mails of a kind to `to` match, for "exactly one" assertions. */
+export async function countEmailsMatching(
+  to: string,
+  kind: EmailKind,
+  matches: (message: OutboxMessage) => boolean
+): Promise<number> {
+  return (await readOutbox()).filter(
+    (m) => m.to === to && m.tags?.kind === kind && matches(m)
+  ).length
 }
 
 export async function countEmails(

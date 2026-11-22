@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { SessionSource } from "@/lib/auth/guards"
 import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors"
 import { applyAsVendor } from "@/lib/services/vendor-application"
+import { RecordingTransactionalQueue } from "../helpers/recording-transactional-queue"
 import {
   VENDOR_DESCRIPTION_MAX_LENGTH,
   VENDOR_NAME_MAX_LENGTH,
@@ -207,7 +208,15 @@ describe("applyAsVendor serialisation", () => {
     } as never
 
     await expect(
-      applyAsVendor({ name: "Thames Tours" }, { session: as("TOURIST"), db })
+      applyAsVendor(
+        { name: "Thames Tours" },
+        {
+          session: as("TOURIST"),
+          db,
+          emailQueue: new RecordingTransactionalQueue(),
+          appUrl: "http://localhost:3000",
+        }
+      )
     ).rejects.toBeInstanceOf(ConflictError)
 
     expect(calls).toHaveLength(2)
@@ -224,7 +233,15 @@ describe("applyAsVendor serialisation", () => {
     } as never
 
     await expect(
-      applyAsVendor({ name: "Thames Tours" }, { session: as("TOURIST"), db })
+      applyAsVendor(
+        { name: "Thames Tours" },
+        {
+          session: as("TOURIST"),
+          db,
+          emailQueue: new RecordingTransactionalQueue(),
+          appUrl: "http://localhost:3000",
+        }
+      )
     ).rejects.toMatchObject({ status: 404 })
   })
 })

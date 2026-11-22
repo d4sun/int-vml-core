@@ -37,7 +37,7 @@ async function account(platformRole: PlatformRole = "TOURIST", name = "Olive") {
   return { id: row.id, email, session: await h.sessionFor(email, password) }
 }
 
-const deps = (session: SessionSource) => ({ session, db: prisma })
+const deps = (session: SessionSource) => governanceDeps(session, prisma)
 
 describe("application status on Postgres", () => {
   it("TC-E4S1-42: someone who has not applied has nothing to show, and can apply", async () => {

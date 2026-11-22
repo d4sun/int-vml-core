@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client"
 import { z } from "zod"
 import {
+  vendorApplicationReceivedEmail,
   vendorApprovedEmail,
   vendorRejectedEmail,
   vendorReinstatedEmail,
@@ -149,6 +150,91 @@ export async function notifyVendorTransition(
         tx,
         message,
         emailJobId(notice.auditId, recipient.email)
+      )
+    ) {
+      created += 1
+    }
+  }
+
+  return created
+}
+
+export type ApplicationNotice = {
+  /** The audit row of the application; it makes the email jobs idempotent. */
+  auditId: string
+  vendor: { id: string; name: string; description?: string }
+  applicant: { name: string; email: string }
+  appUrl: string
+}
+
+export const APPLICATION_EMAIL_KIND = "vendor-application"
+
+export function buildApplicationEmail(
+  admin: Recipient,
+  notice: Pick<ApplicationNotice, "vendor" | "applicant" | "appUrl">
+): EmailMessage {
+  const { subject, html, text } = vendorApplicationReceivedEmail({
+    name: admin.name,
+    vendorName: notice.vendor.name,
+    applicantName: notice.applicant.name,
+    applicantEmail: notice.applicant.email,
+    ...(notice.vendor.description
+      ? { description: notice.vendor.description }
+      : {}),
+    reviewUrl: `${notice.appUrl.replace(/\/+$/, "")}/admin/vendors/${notice.vendor.id}`,
+  })
+
+  return {
+    to: admin.email,
+    subject,
+    html,
+    text,
+    tags: { kind: APPLICATION_EMAIL_KIND },
+  }
+}
+
+/**
+ * Tells every administrator about a new application: one email each, queued
+ * inside the applicant's transaction, with a job id derived from the
+ * application and the admin so a replay creates nothing. Returns how many jobs
+ * were created. With no administrator it logs and returns 0: the application
+ * still stands and shows in the review queue.
+ */
+export async function notifyAdminsOfApplication(
+  tx: Pick<Prisma.TransactionClient, "user" | "$queryRawUnsafe">,
+  queue: TransactionalEmailQueue,
+  notice: ApplicationNotice
+): Promise<number> {
+  const admins = await tx.user.findMany({
+    where: { platformRole: "ADMIN" },
+    orderBy: { createdAt: "asc" },
+    select: { name: true, email: true },
+  })
+
+  const recipients = resolveRecipients(admins, null)
+
+  if (recipients.length === 0) {
+    consoleJobLogger.error(
+      "vendor application email not sent: no administrator",
+      undefined,
+      { vendorId: notice.vendor.id }
+    )
+
+    return 0
+  }
+
+  let created = 0
+
+  for (const admin of recipients) {
+    const id = deterministicUuid(
+      `vendor-application-email:${notice.auditId}:${admin.email.toLowerCase()}`
+    )
+
+    if (
+      await queue.enqueueInTransaction(
+        tx,
+        buildApplicationEmail(admin, notice),
+        id
       )
     ) {
       created += 1

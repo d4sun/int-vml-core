@@ -4,6 +4,8 @@ import {
   SEED,
   SEED_PASSWORD,
   countEmails,
+  countEmailsMatching,
+  linkIn,
   createVerifiedUser,
   expect,
   expectSignInRedirect,
@@ -11,6 +13,7 @@ import {
   signInViaUi,
   test,
   waitForEmail,
+  waitForEmailMatching,
 } from "./support"
 
 const businessName = () => `E2E Apply ${randomUUID().slice(0, 8)}`
@@ -72,6 +75,20 @@ test("E2E-S4-01: someone applies from their profile and sees the application und
   await expect(card).toContainText(name)
   await expect(card).toContainText("Pending")
   await expect(page.getByLabel("Business name")).toHaveCount(0)
+
+  // The administrator is told, once, and the email links to this application.
+  const mentions = (m: { text?: string; html: string }) =>
+    (m.text ?? m.html).includes(name)
+  const notice = await waitForEmailMatching(
+    SEED.admin,
+    "vendor-application",
+    mentions
+  )
+  expect(notice.subject).toBe(`New vendor application: ${name}`)
+  expect(notice.text ?? notice.html).toContain(email)
+  expect(
+    await countEmailsMatching(SEED.admin, "vendor-application", mentions)
+  ).toBe(1)
 
   // It sticks across a reload, and applying granted no access.
   await page.reload()
@@ -174,4 +191,38 @@ test("E2E-S4-05: a rejected submission keeps what was typed", async ({
   await expect(page.getByLabel("Contact email (optional)")).toHaveValue(
     "not-an-email"
   )
+})
+
+test("E2E-S4-06: the administrator's email link opens that application, ready to decide", async ({
+  page,
+  request,
+}) => {
+  const { email, password } = await createVerifiedUser(request)
+  const name = businessName()
+
+  await signInAndWait(page, email, password)
+  await apply(page, name, "Guided walks along the river.")
+  await expect(page.getByTestId("application-card")).toContainText("Pending")
+
+  const notice = await waitForEmailMatching(
+    SEED.admin,
+    "vendor-application",
+    (m) => (m.text ?? m.html).includes(name)
+  )
+  expect(notice.text ?? notice.html).toContain("Guided walks along the river.")
+
+  await page.context().clearCookies()
+  await signInAndWait(page, SEED.admin, SEED_PASSWORD)
+  await page.goto(linkIn(notice))
+
+  await expect(page.getByRole("heading", { name })).toBeVisible()
+  await expect(
+    page.locator('[data-slot="badge"][data-status="PENDING"]')
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Approve", exact: true })
+  ).toBeVisible()
+  await expect(
+    page.locator('[data-audit-action="vendor.applied"]')
+  ).toBeVisible()
 })

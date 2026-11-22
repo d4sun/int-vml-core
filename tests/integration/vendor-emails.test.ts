@@ -13,7 +13,7 @@ import { emailJobId } from "@/lib/services/vendor-notifications"
 import { transitionVendor } from "@/lib/services/vendor-governance"
 import {
   createTestPrismaClient,
-  testDatabaseUrl,
+  plainJobsUrl,
   truncatePublicSchema,
 } from "../helpers/db"
 import { makeHarness, type AuthHarness } from "../helpers/auth-harness"
@@ -25,16 +25,6 @@ let prisma: PrismaClient
 let boss: PgBoss
 let h: AuthHarness
 let queue: PgBossEmailQueue
-
-/** pg-boss uses a plain `pg` connection, which does not understand Prisma's URL options. */
-function plainJobsUrl(): string {
-  const url = new URL(testDatabaseUrl())
-
-  url.searchParams.delete("connection_limit")
-  url.searchParams.delete("pgbouncer")
-
-  return url.toString()
-}
 
 beforeAll(async () => {
   prisma = createTestPrismaClient()

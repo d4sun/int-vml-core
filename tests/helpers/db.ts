@@ -62,3 +62,16 @@ export async function truncatePublicSchema(
     `TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`
   )
 }
+
+/**
+ * The test database URL for pg-boss, which uses a plain `pg` connection and
+ * does not understand Prisma's `connection_limit` and `pgbouncer` options.
+ */
+export function plainJobsUrl(): string {
+  const url = new URL(testDatabaseUrl())
+
+  url.searchParams.delete("connection_limit")
+  url.searchParams.delete("pgbouncer")
+
+  return url.toString()
+}

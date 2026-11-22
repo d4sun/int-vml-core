@@ -2,7 +2,9 @@ import type { PrismaClient, VendorStatus } from "@prisma/client"
 import { toNormalizedError } from "@/lib/actions/result"
 import { requireUser, type SessionSource } from "@/lib/auth/guards"
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors"
+import type { TransactionalEmailQueue } from "@/lib/email/transactional-queue"
 import { audit } from "@/lib/services/audit"
+import { notifyAdminsOfApplication } from "@/lib/services/vendor-notifications"
 import { vendorApplicationSchema } from "@/lib/validation/vendor-application"
 import { readAuditDetails } from "@/lib/vendors/presentation"
 import { randomSlugSuffix, vendorSlug } from "@/lib/vendors/slug"
@@ -20,6 +22,10 @@ export type VendorApplicationDeps = {
   record?: typeof audit.record
   /** Overridable so tests can force a slug collision. */
   randomSuffix?: () => string
+  /** Where the administrators' email jobs are enqueued (inside the transaction). */
+  emailQueue?: TransactionalEmailQueue
+  /** Public origin used in the email link; defaults to `BETTER_AUTH_URL`. */
+  appUrl?: string
 }
 
 const SLUG_ATTEMPTS = 5
@@ -34,6 +40,11 @@ const SLUG_ATTEMPTS = 5
  * second is a ConflictError. Concurrent requests are serialised by locking the
  * applicant's user row, so two clicks cannot both pass the check. A rejected
  * applicant may apply again as a new vendor. Administrators cannot apply.
+ *
+ * Every administrator is emailed about the application by a job inserted in
+ * the same transaction, so an application cannot be saved without its
+ * notification, nor announce one that was rolled back. If that insert fails
+ * the application fails and nothing is created.
  */
 export async function applyAsVendor(
   input: unknown,
@@ -53,6 +64,13 @@ export async function applyAsVendor(
   const db = deps.db ?? (await import("@/lib/prisma")).prisma
   const record = deps.record ?? audit.record
   const suffix = deps.randomSuffix ?? randomSlugSuffix
+  const emailQueue =
+    deps.emailQueue ??
+    (await (
+      await import("@/lib/jobs/transactional")
+    ).getTransactionalEmailQueue())
+  const appUrl =
+    deps.appUrl ?? (await import("@/lib/env")).getEnv().BETTER_AUTH_URL
 
   return db.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<
@@ -99,12 +117,23 @@ export async function applyAsVendor(
       select: { id: true, name: true, slug: true, status: true },
     })
 
-    await record(tx, {
+    const auditId = await record(tx, {
       actorId: actor.id,
       action: "vendor.applied",
       entityType: "Vendor",
       entityId: vendor.id,
       meta: { name },
+    })
+
+    await notifyAdminsOfApplication(tx, emailQueue, {
+      auditId,
+      vendor: {
+        id: vendor.id,
+        name: vendor.name,
+        ...(description ? { description } : {}),
+      },
+      applicant: { name: actor.name, email: actor.email },
+      appUrl,
     })
 
     return vendor
