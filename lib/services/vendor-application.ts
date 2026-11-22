@@ -4,6 +4,7 @@ import { requireUser, type SessionSource } from "@/lib/auth/guards"
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors"
 import { audit } from "@/lib/services/audit"
 import { vendorApplicationSchema } from "@/lib/validation/vendor-application"
+import { readAuditDetails } from "@/lib/vendors/presentation"
 import { randomSlugSuffix, vendorSlug } from "@/lib/vendors/slug"
 
 export type AppliedVendor = {
@@ -108,4 +109,99 @@ export async function applyAsVendor(
 
     return vendor
   })
+}
+
+export type ApplicationSummary = {
+  id: string
+  name: string
+  status: VendorStatus
+  createdAt: Date
+  /** The admin's reason, for a rejected or suspended vendor. */
+  reason: string | null
+}
+
+export type ApplicationStatus = {
+  /** The caller's account email, which the contact email defaults to. */
+  email: string
+  /** Administrators cannot apply, so the page says so instead of a form. */
+  canApply: boolean
+  application: ApplicationSummary | null
+}
+
+/**
+ * Which of the caller's vendors the status page should show: one under review
+ * wins (it is what is waiting on someone), otherwise the most recent.
+ */
+export function pickApplication<
+  T extends { status: VendorStatus; createdAt: Date },
+>(owned: T[]): T | null {
+  const pending = owned.find((vendor) => vendor.status === "PENDING")
+
+  if (pending) return pending
+
+  return (
+    [...owned].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    )[0] ?? null
+  )
+}
+
+const DECISION_ACTION: Partial<Record<VendorStatus, string>> = {
+  REJECTED: "vendor.rejected",
+  SUSPENDED: "vendor.suspended",
+}
+
+/**
+ * The caller's own application status, for the `/vendor/apply` page. Only
+ * vendors the caller OWNS count (staff do not "apply"), and only the caller's
+ * own are ever returned. The reason shown is the one recorded with the
+ * decision that put the vendor in its current status.
+ */
+export async function getApplicationStatus(
+  deps: {
+    session?: SessionSource
+    db?: Pick<PrismaClient, "vendor" | "auditLog">
+  } = {}
+): Promise<ApplicationStatus> {
+  const actor = await requireUser(deps.session)
+  const db = deps.db ?? (await import("@/lib/prisma")).prisma
+
+  const owned = await db.vendor.findMany({
+    where: { members: { some: { userId: actor.id, role: "OWNER" } } },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: { id: true, name: true, status: true, createdAt: true },
+  })
+
+  const picked = pickApplication(owned)
+
+  if (!picked) {
+    return {
+      email: actor.email,
+      canApply: actor.platformRole !== "ADMIN",
+      application: null,
+    }
+  }
+
+  const decision = DECISION_ACTION[picked.status]
+  const row = decision
+    ? await db.auditLog.findFirst({
+        where: {
+          entityType: "Vendor",
+          entityId: picked.id,
+          action: decision,
+        },
+        orderBy: { at: "desc" },
+        select: { meta: true },
+      })
+    : null
+
+  return {
+    email: actor.email,
+    canApply: actor.platformRole !== "ADMIN",
+    application: {
+      ...picked,
+      reason: readAuditDetails(row?.meta).reason ?? null,
+    },
+  }
 }
