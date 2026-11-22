@@ -38,7 +38,7 @@ async function account(platformRole: PlatformRole = "TOURIST", name = "Olive") {
   return { id: row.id, email, session: await h.sessionFor(email, password) }
 }
 
-const deps = (session: SessionSource) => ({ session, db: prisma })
+const deps = (session: SessionSource) => governanceDeps(session, prisma)
 const roleOf = async (id: string) =>
   (await prisma.user.findUniqueOrThrow({ where: { id } })).platformRole
 
