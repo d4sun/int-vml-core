@@ -16,7 +16,8 @@ export type LayoutInput = {
   heading: string
   preview: string
   paragraphs: string[]
-  action: { label: string; url: string }
+  /** Omit for notices that have nothing to click (a rejection, a suspension). */
+  action?: { label: string; url: string }
   footer: string
 }
 
@@ -50,8 +51,8 @@ export function renderLayout(input: LayoutInput): {
   const heading = escapeHtml(input.heading)
   const preview = escapeHtml(input.preview)
   const paragraphs = input.paragraphs.map(escapeHtml)
-  const label = escapeHtml(input.action.label)
-  const url = escapeHtml(input.action.url)
+  const label = input.action ? escapeHtml(input.action.label) : ""
+  const url = input.action ? escapeHtml(input.action.url) : ""
   const footer = escapeHtml(input.footer)
 
   const html = `<!doctype html>
@@ -77,10 +78,14 @@ export function renderLayout(input: LayoutInput): {
                       `<p style="margin:0 0 16px;">${paragraph}</p>`
                   )
                   .join("\n                ")}
-                <p style="margin:24px 0;">
+                ${
+                  input.action
+                    ? `<p style="margin:24px 0;">
                   <a href="${url}" style="display:inline-block;background:#1c1917;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;">${label}</a>
                 </p>
-                <p style="margin:0 0 16px;font-size:14px;color:#57534e;">Or paste this link into your browser:<br /><a href="${url}" style="color:#1c1917;word-break:break-all;">${url}</a></p>
+                <p style="margin:0 0 16px;font-size:14px;color:#57534e;">Or paste this link into your browser:<br /><a href="${url}" style="color:#1c1917;word-break:break-all;">${url}</a></p>`
+                    : ""
+                }
                 <hr style="border:0;border-top:1px solid #e7e5e4;margin:24px 0;" />
                 <p style="margin:0;font-size:13px;color:#78716c;">${footer}</p>
               </td>
@@ -96,8 +101,7 @@ export function renderLayout(input: LayoutInput): {
     input.heading,
     "",
     ...input.paragraphs.flatMap((paragraph) => [paragraph, ""]),
-    `${input.action.label}: ${input.action.url}`,
-    "",
+    ...(input.action ? [`${input.action.label}: ${input.action.url}`, ""] : []),
     input.footer,
   ].join("\n")
 

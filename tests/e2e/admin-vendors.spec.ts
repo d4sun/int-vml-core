@@ -2,11 +2,14 @@ import type { Page } from "@playwright/test"
 import { closeDb, createVendor } from "./db"
 import {
   SEED,
+  countEmails,
+  linkIn,
   SEED_PASSWORD,
   expect,
   expectSignInRedirect,
   signInAndWait,
   test,
+  waitForEmail,
 } from "./support"
 
 test.afterAll(closeDb)
@@ -48,6 +51,12 @@ test("E2E-S8-01: an admin finds a pending vendor in the queue, approves it, and 
   await button(page, "Approve").click()
 
   await expect(page.getByText("this vendor is now approved")).toBeVisible()
+
+  // The owner is told, by exactly one email, with a link to their dashboard.
+  const approved = await waitForEmail(vendor.ownerEmail, "vendor-approved")
+  expect(approved.subject).toBe("Your vendor application has been approved")
+  expect(linkIn(approved)).toMatch(/\/vendor$/)
+  expect(await countEmails(vendor.ownerEmail, "vendor-approved")).toBe(1)
   await expect(status(page, "APPROVED")).toBeVisible()
   await expect(status(page, "PENDING")).toHaveCount(0)
   await expect(
@@ -82,6 +91,7 @@ test("E2E-S8-02: suspending needs a reason; a suspended vendor can be reinstated
     page.getByText("Give a reason to suspend a vendor")
   ).toBeVisible()
   await expect(status(page, "APPROVED")).toBeVisible()
+  expect(await countEmails(vendor.ownerEmail, "vendor-suspended")).toBe(0)
 
   await page.getByLabel(/^Reason/).fill("Chargeback spike")
   await button(page, "Suspend").click()
@@ -94,9 +104,15 @@ test("E2E-S8-02: suspending needs a reason; a suspended vendor can be reinstated
   await expect(button(page, "Reinstate")).toBeVisible()
   await expect(button(page, "Suspend")).toHaveCount(0)
 
+  const suspended = await waitForEmail(vendor.ownerEmail, "vendor-suspended")
+  expect(suspended.text ?? suspended.html).toContain("Reason: Chargeback spike")
+
   await button(page, "Reinstate").click()
   await expect(status(page, "APPROVED")).toBeVisible()
+  await waitForEmail(vendor.ownerEmail, "vendor-reinstated")
   await expect(page.locator("[data-audit-action]")).toHaveCount(2)
+  expect(await countEmails(vendor.ownerEmail, "vendor-suspended")).toBe(1)
+  expect(await countEmails(vendor.ownerEmail, "vendor-reinstated")).toBe(1)
 })
 
 test("E2E-S8-03: rejecting needs a reason and is final", async ({ page }) => {
@@ -108,11 +124,15 @@ test("E2E-S8-03: rejecting needs a reason and is final", async ({ page }) => {
   await button(page, "Reject").click()
   await expect(page.getByText("Give a reason to reject a vendor")).toBeVisible()
   await expect(status(page, "PENDING")).toBeVisible()
+  expect(await countEmails(vendor.ownerEmail, "vendor-rejected")).toBe(0)
 
   await page.getByLabel(/^Reason/).fill("No trading licence")
   await button(page, "Reject").click()
 
   await expect(status(page, "REJECTED")).toBeVisible()
+  const rejected = await waitForEmail(vendor.ownerEmail, "vendor-rejected")
+  expect(rejected.text ?? rejected.html).toContain("Reason: No trading licence")
+  expect(await countEmails(vendor.ownerEmail, "vendor-rejected")).toBe(1)
   await expect(page.getByText(/no further action is possible/)).toBeVisible()
   await expect(
     page.getByRole("button", { name: /Approve|Reject|Suspend|Reinstate/ })

@@ -18,6 +18,14 @@ export const SEED = {
   tourist: "tourist@seed.vml.test",
 } as const
 
+export type EmailKind =
+  | "verification"
+  | "password-reset"
+  | "vendor-approved"
+  | "vendor-rejected"
+  | "vendor-suspended"
+  | "vendor-reinstated"
+
 type OutboxMessage = {
   to: string
   subject: string
@@ -84,7 +92,7 @@ async function readOutbox(): Promise<OutboxMessage[]> {
 /** Waits for the worker to deliver the `index`th (0-based) mail of a kind. */
 export async function waitForEmail(
   to: string,
-  kind: "verification" | "password-reset",
+  kind: EmailKind,
   index = 0
 ): Promise<OutboxMessage> {
   await expect
@@ -103,7 +111,7 @@ export async function waitForEmail(
 
 export async function countEmails(
   to: string,
-  kind: "verification" | "password-reset"
+  kind: EmailKind
 ): Promise<number> {
   return (await readOutbox()).filter(
     (m) => m.to === to && m.tags?.kind === kind

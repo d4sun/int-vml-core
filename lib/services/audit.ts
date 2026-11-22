@@ -14,12 +14,12 @@ export type AuditEntry = {
 export type AuditClient = Pick<Prisma.TransactionClient, "auditLog">
 
 /**
- * Writes one audit row through the caller's transaction client, so the row
+ * Writes one audit row (and returns its id) through the caller's transaction client, so the row
  * commits or rolls back together with the change it describes. Never call it
  * with the global client for a state change: that would break the guarantee.
  */
-async function record(tx: AuditClient, entry: AuditEntry): Promise<void> {
-  await tx.auditLog.create({
+async function record(tx: AuditClient, entry: AuditEntry): Promise<string> {
+  const row = await tx.auditLog.create({
     data: {
       actorId: entry.actorId,
       action: entry.action,
@@ -27,7 +27,10 @@ async function record(tx: AuditClient, entry: AuditEntry): Promise<void> {
       entityId: entry.entityId,
       ...(entry.meta === undefined ? {} : { meta: entry.meta }),
     },
+    select: { id: true },
   })
+
+  return row.id
 }
 
 export const audit = { record }

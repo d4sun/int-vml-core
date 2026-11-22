@@ -6,6 +6,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors"
 import { transitionVendor } from "@/lib/services/vendor-governance"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
 import { makeHarness, type AuthHarness } from "../helpers/auth-harness"
+import { governanceDeps } from "../helpers/recording-transactional-queue"
 
 let prisma: PrismaClient
 let h: AuthHarness
@@ -46,7 +47,7 @@ async function vendor(status: VendorStatus = "PENDING") {
   })
 }
 
-const deps = (session: SessionSource) => ({ session, db: prisma })
+const deps = (session: SessionSource) => governanceDeps(session, prisma)
 
 const auditRows = (vendorId: string) =>
   prisma.auditLog.findMany({

@@ -19,9 +19,12 @@ export async function closeDb(): Promise<void> {
  * directly in the database. Names are unique so tests find their own rows in
  * a database that earlier runs have already filled.
  */
-export async function createVendor(
-  status: VendorStatus
-): Promise<{ id: string; name: string; ownerName: string }> {
+export async function createVendor(status: VendorStatus): Promise<{
+  id: string
+  name: string
+  ownerName: string
+  ownerEmail: string
+}> {
   const suffix = randomUUID().slice(0, 8)
   const ownerName = `Olive ${suffix}`
   const owner = await db().user.create({
@@ -41,5 +44,10 @@ export async function createVendor(
     },
   })
 
-  return { id: vendor.id, name: vendor.name, ownerName }
+  return {
+    id: vendor.id,
+    name: vendor.name,
+    ownerName,
+    ownerEmail: owner.email,
+  }
 }
