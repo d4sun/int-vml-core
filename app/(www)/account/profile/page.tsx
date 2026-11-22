@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { AuthCard } from "@/components/auth/auth-card"
 import { ProfileForm } from "@/components/auth/profile-form"
@@ -35,6 +36,15 @@ export default async function ProfilePage() {
       <div className="space-y-6">
         <ProfileForm name={profile.name} action={updateProfileAction} />
         <SignOutButton />
+        <p className="text-center text-sm text-muted-foreground">
+          Run a tour, venue or event?{" "}
+          <Link
+            href="/vendor/apply"
+            className="font-medium text-vml-navy underline"
+          >
+            Become a vendor
+          </Link>
+        </p>
       </div>
     </AuthCard>
   )
