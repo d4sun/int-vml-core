@@ -9,6 +9,7 @@ import { ForbiddenError, NotFoundError } from "@/lib/errors"
 import { transitionVendor } from "@/lib/services/vendor-governance"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
 import { makeHarness, type AuthHarness } from "../helpers/auth-harness"
+import { governanceDeps } from "../helpers/recording-transactional-queue"
 
 const VENDOR_STATUSES: VendorStatus[] = [
   "PENDING",
@@ -130,19 +131,19 @@ describe("public visibility on Postgres", () => {
 
     await transitionVendor(
       { vendorId: v.id, action: "approve" },
-      { session: a.session, db: prisma }
+      governanceDeps(a.session, prisma)
     )
     expect(await visibleIds()).toEqual([l.id])
 
     await transitionVendor(
       { vendorId: v.id, action: "suspend", reason: "Under review" },
-      { session: a.session, db: prisma }
+      governanceDeps(a.session, prisma)
     )
     expect(await visibleIds()).toEqual([])
 
     await transitionVendor(
       { vendorId: v.id, action: "reinstate" },
-      { session: a.session, db: prisma }
+      governanceDeps(a.session, prisma)
     )
     expect(await visibleIds()).toEqual([l.id])
   })

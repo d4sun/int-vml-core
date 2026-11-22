@@ -9,3 +9,10 @@ export {
   type LayoutInput,
   type TemplateContent,
 } from "./layout"
+export {
+  vendorApprovedEmail,
+  vendorRejectedEmail,
+  vendorReinstatedEmail,
+  vendorSuspendedEmail,
+} from "./vendor-status"
+export type { VendorStatusEmailInput } from "./vendor-status"

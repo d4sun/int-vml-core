@@ -11,6 +11,7 @@ import {
 import { transitionVendor } from "@/lib/services/vendor-governance"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
 import { makeHarness, type AuthHarness } from "../helpers/auth-harness"
+import { governanceDeps } from "../helpers/recording-transactional-queue"
 
 let prisma: PrismaClient
 let h: AuthHarness
@@ -207,11 +208,11 @@ describe("admin vendor detail on Postgres", () => {
 
     await transitionVendor(
       { vendorId: v.id, action: "approve" },
-      deps(first.session)
+      governanceDeps(first.session, prisma)
     )
     await transitionVendor(
       { vendorId: v.id, action: "suspend", reason: "Chargeback spike" },
-      deps(second.session)
+      governanceDeps(second.session, prisma)
     )
 
     const detail = await getVendorForAdmin(v.id, deps(first.session))
@@ -241,7 +242,7 @@ describe("admin vendor detail on Postgres", () => {
 
     await transitionVendor(
       { vendorId: v.id, action: "approve" },
-      deps(gone.session)
+      governanceDeps(gone.session, prisma)
     )
     await prisma.user.delete({ where: { id: gone.id } })
 
