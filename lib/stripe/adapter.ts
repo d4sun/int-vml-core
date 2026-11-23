@@ -111,3 +111,19 @@ export class StripeAccountNotFoundError extends Error {
 
 /** Stripe rejects timestamps further than this from now (seconds). */
 export const WEBHOOK_TOLERANCE_SECONDS = 300
+
+const hasName = (error: unknown, name: string) =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { name?: unknown }).name === name
+
+/**
+ * Name-based on purpose: Next.js bundles server code per route, so the same
+ * error class can exist twice and `instanceof` would miss an error thrown by
+ * an adapter that another bundle created.
+ */
+export const isStripeSignatureError = (error: unknown) =>
+  hasName(error, "StripeSignatureError")
+
+export const isStripeAccountNotFoundError = (error: unknown) =>
+  hasName(error, "StripeAccountNotFoundError")

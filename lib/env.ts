@@ -69,6 +69,12 @@ export const envSchema = z
         .regex(/^(sk|rk)_/, "Must be a Stripe secret or restricted key")
         .optional()
     ),
+    // Explicit opt-in to the in-memory fake, the only way to use it in a
+    // production build (the e2e suite runs one). See `lib/stripe/index.ts`.
+    STRIPE_ADAPTER: z.preprocess(
+      blankToUndefined,
+      z.literal("fake").optional()
+    ),
     STRIPE_WEBHOOK_SECRET: z.preprocess(
       blankToUndefined,
       z
@@ -93,6 +99,14 @@ export const envSchema = z
         code: "custom",
         path: ["EMAIL_FROM"],
         message: "Required when BREVO_API_KEY is set",
+      })
+    }
+
+    if (env.STRIPE_SECRET_KEY && env.STRIPE_ADAPTER === "fake") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["STRIPE_ADAPTER"],
+        message: "Cannot be combined with STRIPE_SECRET_KEY",
       })
     }
 

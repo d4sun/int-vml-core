@@ -146,4 +146,23 @@ describe("parseEnv", () => {
 
     expect(env.STRIPE_SECRET_KEY).toBe("rk_test_abc")
   })
+  it("E4-S2-01: STRIPE_ADAPTER accepts only fake, and not together with a key", () => {
+    expect(parseEnv({ ...base, STRIPE_ADAPTER: "fake" }).STRIPE_ADAPTER).toBe(
+      "fake"
+    )
+    expect(
+      parseEnv({ ...base, STRIPE_ADAPTER: "" }).STRIPE_ADAPTER
+    ).toBeUndefined()
+    expect(parseError({ ...base, STRIPE_ADAPTER: "real" })).toContain(
+      "STRIPE_ADAPTER"
+    )
+    expect(
+      parseError({
+        ...base,
+        STRIPE_ADAPTER: "fake",
+        STRIPE_SECRET_KEY: "sk_test_abc",
+        STRIPE_WEBHOOK_SECRET: "whsec_abc",
+      })
+    ).toContain("Cannot be combined")
+  })
 })

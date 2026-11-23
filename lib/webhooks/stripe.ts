@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client"
 import { z } from "zod"
 import {
-  StripeSignatureError,
+  isStripeSignatureError,
   type StripeAdapter,
   type StripeWebhookEvent,
 } from "@/lib/stripe/adapter"
@@ -76,7 +76,7 @@ export async function handleStripeWebhook(
   try {
     event = stripe.constructWebhookEvent(rawBody, signature)
   } catch (error) {
-    if (error instanceof StripeSignatureError) {
+    if (isStripeSignatureError(error)) {
       return { status: 400, body: { error: "invalid_signature" } }
     }
 

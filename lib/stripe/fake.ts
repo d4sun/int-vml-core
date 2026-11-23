@@ -100,8 +100,16 @@ export class FakeStripe implements StripeAdapter {
 
     if (replay) return { ...replay }
 
+    // The "hosted" page is a dev-only route of this app, so a local run and
+    // the e2e tests can walk the whole flow (see `lib/stripe/fake-onboarding.ts`).
+    const page = new URL("/api/dev/stripe-fake/onboard", input.returnUrl)
+
+    page.searchParams.set("account", input.accountId)
+    page.searchParams.set("return", input.returnUrl)
+    page.searchParams.set("refresh", input.refreshUrl)
+
     const link: AccountLink = {
-      url: `https://connect.stripe.test/setup/${input.accountId}`,
+      url: page.toString(),
       expiresAt: new Date(this.now().getTime() + this.linkTtlMs),
     }
 

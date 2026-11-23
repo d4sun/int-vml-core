@@ -47,4 +47,33 @@ describe("createStripeAdapter", () => {
 
     expect((adapter as FakeStripe).webhookSecret).toBe("whsec_from_env")
   })
+  it("an explicit STRIPE_ADAPTER=fake gives the fake even in a production build, with its own secret", () => {
+    const { adapter, mode } = createStripeAdapter({
+      NODE_ENV: "production",
+      STRIPE_ADAPTER: "fake",
+      STRIPE_WEBHOOK_SECRET: "whsec_private_to_this_run",
+    })
+
+    expect(mode).toBe("fake")
+    expect((adapter as FakeStripe).webhookSecret).toBe(
+      "whsec_private_to_this_run"
+    )
+  })
+
+  it("the fake in production without its own webhook secret is refused, so the public secret is never accepted there", () => {
+    expect(() =>
+      createStripeAdapter({ NODE_ENV: "production", STRIPE_ADAPTER: "fake" })
+    ).toThrow("STRIPE_WEBHOOK_SECRET")
+  })
+
+  it("the fake cannot be combined with a real key", () => {
+    expect(() =>
+      createStripeAdapter({
+        NODE_ENV: "development",
+        STRIPE_ADAPTER: "fake",
+        STRIPE_SECRET_KEY: "sk_test_x",
+        STRIPE_WEBHOOK_SECRET: "whsec_x",
+      })
+    ).toThrow("cannot be combined")
+  })
 })
