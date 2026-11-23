@@ -109,4 +109,41 @@ describe("parseEnv", () => {
 
     expect(source).toEqual(base)
   })
+  it("TC-E4S2-01: Stripe keys are optional, and blank means unset", () => {
+    const env = parseEnv({
+      ...base,
+      STRIPE_SECRET_KEY: "",
+      STRIPE_WEBHOOK_SECRET: "",
+    })
+
+    expect(env.STRIPE_SECRET_KEY).toBeUndefined()
+    expect(env.STRIPE_WEBHOOK_SECRET).toBeUndefined()
+  })
+
+  it("TC-E4S2-01: a Stripe key needs a webhook secret, and the two cannot be swapped", () => {
+    expect(parseError({ ...base, STRIPE_SECRET_KEY: "sk_test_abc" })).toContain(
+      "STRIPE_WEBHOOK_SECRET"
+    )
+
+    const swapped = parseError({
+      ...base,
+      STRIPE_SECRET_KEY: "whsec_abc",
+      STRIPE_WEBHOOK_SECRET: "sk_test_abc",
+    })
+
+    expect(swapped).toContain("STRIPE_SECRET_KEY")
+    expect(swapped).toContain("STRIPE_WEBHOOK_SECRET")
+    expect(swapped).not.toContain("whsec_abc")
+    expect(swapped).not.toContain("sk_test_abc")
+  })
+
+  it("TC-E4S2-01: accepts a restricted key", () => {
+    const env = parseEnv({
+      ...base,
+      STRIPE_SECRET_KEY: "rk_test_abc",
+      STRIPE_WEBHOOK_SECRET: "whsec_abc",
+    })
+
+    expect(env.STRIPE_SECRET_KEY).toBe("rk_test_abc")
+  })
 })

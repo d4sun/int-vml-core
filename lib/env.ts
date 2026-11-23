@@ -57,6 +57,27 @@ export const envSchema = z
     EMAIL_FROM_NAME: optionalString,
     EMAIL_OUTBOX_DIR: z.string().trim().min(1).default(".tmp/email-outbox"),
 
+    // Stripe. Without a key, development and tests use the in-memory fake and
+    // production refuses to start (see `lib/stripe/index.ts`). The secret key
+    // may be a restricted key (`rk_`); the webhook secret comes from the
+    // endpoint's signing secret, never the API key.
+    STRIPE_SECRET_KEY: z.preprocess(
+      blankToUndefined,
+      z
+        .string()
+        .trim()
+        .regex(/^(sk|rk)_/, "Must be a Stripe secret or restricted key")
+        .optional()
+    ),
+    STRIPE_WEBHOOK_SECRET: z.preprocess(
+      blankToUndefined,
+      z
+        .string()
+        .trim()
+        .regex(/^whsec_/, "Must be a Stripe webhook signing secret")
+        .optional()
+    ),
+
     // Better Auth. The secret is optional here because tests and local tooling
     // do not need it; the auth config tightens this rule where it is consumed.
     BETTER_AUTH_SECRET: optionalString,
@@ -72,6 +93,14 @@ export const envSchema = z
         code: "custom",
         path: ["EMAIL_FROM"],
         message: "Required when BREVO_API_KEY is set",
+      })
+    }
+
+    if (env.STRIPE_SECRET_KEY && !env.STRIPE_WEBHOOK_SECRET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["STRIPE_WEBHOOK_SECRET"],
+        message: "Required when STRIPE_SECRET_KEY is set",
       })
     }
   })
