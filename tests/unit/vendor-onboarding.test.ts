@@ -114,7 +114,7 @@ function setup(
 const input = { vendorId: "v1" }
 
 describe("startOnboarding access", () => {
-  it("TC-E4S2-05: signed out is a 401 and nothing is touched", async () => {
+  it("E4-S2-02: signed out is a 401 and nothing is touched", async () => {
     const t = setup({ role: null })
 
     await expect(startOnboarding(input, t.deps)).rejects.toMatchObject({
@@ -128,7 +128,7 @@ describe("startOnboarding access", () => {
   it.each([
     ["staff", "STAFF" as const],
     ["a non-member", null],
-  ])("TC-E4S2-05: %s is refused and Stripe is never called", async (_, who) => {
+  ])("E4-S2-02: %s is refused and Stripe is never called", async (_, who) => {
     const t = setup({ member: who })
 
     await expect(startOnboarding(input, t.deps)).rejects.toBeInstanceOf(
@@ -147,7 +147,7 @@ describe("startOnboarding access", () => {
   })
 
   it.each(["PENDING", "REJECTED", "SUSPENDED"])(
-    "TC-E4S2-04: a %s vendor gets no Stripe account",
+    "E4-S2-02: a %s vendor gets no Stripe account",
     async (status) => {
       const t = setup({ vendor: { status } })
       const error = await startOnboarding(input, t.deps).catch(
@@ -182,7 +182,7 @@ describe("startOnboarding access", () => {
 })
 
 describe("startOnboarding flow", () => {
-  it("TC-E4S2-05: an owner of an approved vendor gets a link and the account is saved", async () => {
+  it("E4-S2-02: an owner of an approved vendor gets a link and the account is saved", async () => {
     const t = setup()
     const result = await startOnboarding(input, t.deps)
 
@@ -237,7 +237,7 @@ describe("startOnboarding flow", () => {
     })
   })
 
-  it("TC-E4S2-05: a second start reuses the account and still returns a link", async () => {
+  it("E4-S2-02: a second start reuses the account and still returns a link", async () => {
     const t = setup()
 
     await startOnboarding(input, t.deps)

@@ -13,7 +13,7 @@ const links = {
 }
 
 describe("FakeStripe accounts", () => {
-  it("TC-E4S2-01: a new account cannot take charges or payouts yet", async () => {
+  it("E4-S2-01: a new account cannot take charges or payouts yet", async () => {
     const stripe = new FakeStripe()
     const account = await stripe.createConnectAccount({ vendorId: "v1" })
 
@@ -24,7 +24,7 @@ describe("FakeStripe accounts", () => {
     expect(account.currentlyDue.length).toBeGreaterThan(0)
   })
 
-  it("TC-E4S2-01: replays the stored account for a repeated idempotency key", async () => {
+  it("E4-S2-01: replays the stored account for a repeated idempotency key", async () => {
     const stripe = new FakeStripe()
     const first = await stripe.createConnectAccount(
       { vendorId: "v1" },
@@ -85,7 +85,7 @@ describe("FakeStripe accounts", () => {
     ).rejects.toBeInstanceOf(StripeAccountNotFoundError)
   })
 
-  it("TC-E4S2-01: completing onboarding enables both capabilities and clears requirements", async () => {
+  it("E4-S2-01: completing onboarding enables both capabilities and clears requirements", async () => {
     const stripe = new FakeStripe()
     const { id } = await stripe.createConnectAccount({ vendorId: "v1" })
 
@@ -102,7 +102,7 @@ describe("FakeStripe accounts", () => {
     })
   })
 
-  it("TC-E4S2-03: charges can be on while payouts stay off", async () => {
+  it("E4-S2-01: charges can be on while payouts stay off", async () => {
     const stripe = new FakeStripe()
     const { id } = await stripe.createConnectAccount({ vendorId: "v1" })
 
