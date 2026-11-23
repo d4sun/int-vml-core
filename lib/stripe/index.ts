@@ -66,3 +66,17 @@ export function getStripe(): StripeAdapter {
 
   return globalForStripe.vmlStripe.adapter
 }
+
+/**
+ * The in-memory fake, or `null` when the real adapter is in use. Decided by
+ * the mode recorded at selection, not by `instanceof`: Next bundles server
+ * code per route, so the same class can exist twice and `instanceof` lies.
+ * Only the dev-only fake onboarding page uses this.
+ */
+export function getFakeStripe(): FakeStripe | null {
+  getStripe()
+
+  const selection = globalForStripe.vmlStripe
+
+  return selection?.mode === "fake" ? (selection.adapter as FakeStripe) : null
+}

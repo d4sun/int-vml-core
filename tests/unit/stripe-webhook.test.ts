@@ -128,6 +128,22 @@ describe("handleStripeWebhook signature", () => {
     expect(t.calls).toEqual([])
   })
 
+  it("a signature error from another copy of the class is still reported as a bad signature", async () => {
+    const t = setup()
+    const foreign = Object.assign(new Error("nope"), {
+      name: "StripeSignatureError",
+    })
+    const stripe = {
+      constructWebhookEvent() {
+        throw foreign
+      },
+    } as never
+
+    expect(
+      await handleStripeWebhook("{}", "t=1,v1=x", { ...t.deps, stripe })
+    ).toEqual({ status: 400, body: { error: "invalid_signature" } })
+  })
+
   it("a correctly signed body that is not JSON is a 400, not a crash", async () => {
     const t = setup()
     const body = "not json"

@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { SurfaceShell } from "@/components/surface-shell"
 import { enforceSurface } from "@/lib/auth/enforce-surface"
 
@@ -8,6 +9,11 @@ export default async function VendorHomePage() {
     <SurfaceShell eyebrow="Vendor" title="Vendor dashboard">
       <p className="text-sm text-muted-foreground">
         Your listings, bookings and payouts will appear here.
+      </p>
+      <p className="mt-4 text-sm">
+        <Link href="/vendor/payouts/setup" className="underline">
+          Payout setup
+        </Link>
       </p>
     </SurfaceShell>
   )
