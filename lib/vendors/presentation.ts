@@ -29,6 +29,8 @@ const AUDIT_LABEL: Record<string, string> = {
   "vendor.rejected": "Rejected",
   "vendor.suspended": "Suspended",
   "vendor.reinstated": "Reinstated",
+  "vendor.payouts_enabled": "Payouts enabled",
+  "vendor.payouts_disabled": "Payouts disabled",
 }
 
 /** A readable label for an audit verb; unknown verbs are shown as recorded. */

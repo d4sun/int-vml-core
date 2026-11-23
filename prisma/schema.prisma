@@ -148,6 +148,11 @@ model Vendor {
   status                    VendorStatus @default(PENDING)
   stripeAccountId           String?      @unique
   stripeOnboardingComplete  Boolean      @default(false)
+  // Last `account.updated` summary from Stripe. `stripeStatusAt` is that event's
+  // timestamp: an older event arriving late must not overwrite a newer one.
+  stripeRequirementsDue     String[]     @default([])
+  stripeDisabledReason      String?
+  stripeStatusAt            DateTime?
   commissionBpsOverride     Int?         // overrides category default when set
   contactEmail              String?
   approvedByAdminId         String?

@@ -153,14 +153,16 @@ export class FakeStripe implements StripeAdapter {
   /** An `account.updated` event for the account's current state, signed. */
   signedAccountUpdated(
     accountId: string,
-    eventId: string = `evt_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`
+    eventId: string = `evt_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+    /** Seconds since the epoch; defaults to the fake's clock. */
+    created: number = Math.floor(this.now().getTime() / 1000)
   ): { rawBody: string; signature: string; event: StripeWebhookEvent } {
     const account = this.require(accountId)
 
     return this.signedEvent({
       id: eventId,
       type: "account.updated",
-      created: Math.floor(this.now().getTime() / 1000),
+      created,
       data: {
         object: {
           id: account.id,
