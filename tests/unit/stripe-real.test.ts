@@ -144,7 +144,7 @@ describe("RealStripe account calls", () => {
     expect(link.expiresAt.getTime()).toBe(1_780_000_000 * 1000)
   })
 
-  it("TC-E4S2-03: capabilities are read as given, never inferred from details_submitted", () => {
+  it("E4-S2-01: capabilities are read as given, never inferred from details_submitted", () => {
     expect(
       mapAccount({
         id: "a",
@@ -162,7 +162,7 @@ describe("RealStripe account calls", () => {
     })
   })
 
-  it("TC-E4S2-03: submitting details does not enable charges or payouts", () => {
+  it("E4-S2-01: submitting details does not enable charges or payouts", () => {
     const account = mapAccount({
       id: "a",
       charges_enabled: false,

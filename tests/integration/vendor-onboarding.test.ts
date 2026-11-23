@@ -74,7 +74,7 @@ const stored = async (id: string) =>
   (await prisma.vendor.findUniqueOrThrow({ where: { id } })).stripeAccountId
 
 describe("startOnboarding on Postgres", () => {
-  it("TC-E4S2-05: the owner of an approved vendor gets a link and the account is saved", async () => {
+  it("E4-S2-02: the owner of an approved vendor gets a link and the account is saved", async () => {
     const owner = await user()
     const vendor = await vendorFor(owner)
     const result = await start(vendor.id, owner.session)
@@ -97,7 +97,7 @@ describe("startOnboarding on Postgres", () => {
     })
   })
 
-  it("TC-E4S2-05: starting again reuses the saved account and returns a new link", async () => {
+  it("E4-S2-02: starting again reuses the saved account and returns a new link", async () => {
     const owner = await user()
     const vendor = await vendorFor(owner)
 
@@ -111,7 +111,7 @@ describe("startOnboarding on Postgres", () => {
     expect(creates()).toHaveLength(1)
   })
 
-  it("TC-E4S2-05: staff cannot start onboarding and nothing reaches Stripe", async () => {
+  it("E4-S2-02: staff cannot start onboarding and nothing reaches Stripe", async () => {
     const owner = await user()
     const staff = await user()
     const vendor = await vendorFor(owner)
@@ -154,7 +154,7 @@ describe("startOnboarding on Postgres", () => {
   })
 
   it.each(["PENDING", "REJECTED", "SUSPENDED"] as const)(
-    "TC-E4S2-04: the owner of a %s vendor gets no Stripe account",
+    "E4-S2-02: the owner of a %s vendor gets no Stripe account",
     async (status) => {
       const owner = await user()
       const vendor = await vendorFor(owner, "OWNER", status)
