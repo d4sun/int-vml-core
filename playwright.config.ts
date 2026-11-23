@@ -15,6 +15,10 @@ const appEnv = {
   BETTER_AUTH_SECRET:
     process.env.BETTER_AUTH_SECRET ?? "e2e-only-secret-not-used-in-production",
   EMAIL_OUTBOX_DIR: E2E_OUTBOX_DIR,
+  // CI serves a production build, which refuses the in-memory Stripe fake
+  // unless it is asked for by name and given its own webhook secret.
+  STRIPE_ADAPTER: "fake",
+  STRIPE_WEBHOOK_SECRET: "whsec_e2e_only_not_used_in_production",
   NEXT_TELEMETRY_DISABLED: "1",
 }
 
