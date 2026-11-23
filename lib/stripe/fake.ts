@@ -44,7 +44,11 @@ export class FakeStripe implements StripeAdapter {
   private readonly linkKeys = new Map<string, Stored<AccountLink>>()
 
   /** Every call made through the interface, for assertions. */
-  readonly calls: { method: string; input: unknown }[] = []
+  readonly calls: {
+    method: string
+    input: unknown
+    options?: RequestOptions
+  }[] = []
 
   constructor(options: FakeStripeOptions = {}) {
     this.webhookSecret = options.webhookSecret ?? FAKE_WEBHOOK_SECRET
@@ -56,7 +60,7 @@ export class FakeStripe implements StripeAdapter {
     input: CreateConnectAccountInput,
     options: RequestOptions = {}
   ): Promise<ConnectAccount> {
-    this.calls.push({ method: "createConnectAccount", input })
+    this.calls.push({ method: "createConnectAccount", input, options })
 
     const replay = this.replay(this.accountKeys, options, input)
 
@@ -88,7 +92,7 @@ export class FakeStripe implements StripeAdapter {
     input: CreateAccountLinkInput,
     options: RequestOptions = {}
   ): Promise<AccountLink> {
-    this.calls.push({ method: "createAccountLink", input })
+    this.calls.push({ method: "createAccountLink", input, options })
 
     this.require(input.accountId)
 
