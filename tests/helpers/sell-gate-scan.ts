@@ -7,10 +7,13 @@ export type UngatedPath = { path: string; kind: "publish" | "payout" }
 
 const GATE = "assertVendorCanSell"
 
-/** Writing a listing and naming PUBLISHED in the same module: a publish path. */
+/**
+ * Writing a listing in a module that assigns `status: "PUBLISHED"`: a publish
+ * path. Comparing against PUBLISHED (`status === "PUBLISHED"`) is not a write.
+ */
 const LISTING_WRITE =
   /\blisting\.(update|updateMany|create|createMany|upsert)\s*\(/
-const PUBLISHED = /["']PUBLISHED["']/
+const PUBLISHED = /\bstatus:\s*["']PUBLISHED["']/
 
 /** Creating a transfer row or a Stripe transfer: a payout path. */
 const PAYOUT = [

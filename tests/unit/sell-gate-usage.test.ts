@@ -47,6 +47,17 @@ describe("sell gate tripwire", () => {
     ).toEqual([])
   })
 
+  it("does not flag a module that only compares against PUBLISHED", () => {
+    expect(
+      findUngatedSellPaths([
+        {
+          path: "lib/services/listing.ts",
+          text: `if (current.status === "PUBLISHED") await tx.listing.updateMany({ data: { status: "PENDING_REVIEW" } })`,
+        },
+      ])
+    ).toEqual([])
+  })
+
   it("does not flag reads of published listings or other listing writes", () => {
     expect(
       findUngatedSellPaths([
