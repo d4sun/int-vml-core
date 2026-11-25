@@ -8,6 +8,7 @@ import {
   type PrismaClient,
 } from "@prisma/client"
 import { hashPassword, verifyPassword } from "better-auth/crypto"
+import { SEED_CATEGORIES } from "../lib/categories/taxonomy"
 
 /**
  * DEVELOPMENT AND TEST DATA ONLY. These accounts have a publicly known
@@ -127,15 +128,23 @@ export async function seedDatabase(
     }
   }
 
-  const category = await prisma.category.upsert({
+  // `update: {}` on purpose: a re-seed must never undo what an admin has since
+  // renamed or re-priced. Only missing categories are created.
+  for (const seed of SEED_CATEGORIES) {
+    await prisma.category.upsert({
+      where: { slug: seed.slug },
+      update: {},
+      create: {
+        name: seed.name,
+        slug: seed.slug,
+        type: CategoryType.TIMED_SLOT,
+        commissionBpsDefault: seed.commissionBpsDefault,
+      },
+    })
+  }
+
+  const category = await prisma.category.findUniqueOrThrow({
     where: { slug: "tours" },
-    update: {},
-    create: {
-      name: "Tours",
-      slug: "tours",
-      type: CategoryType.TIMED_SLOT,
-      commissionBpsDefault: 1000,
-    },
   })
 
   const vendor = await prisma.vendor.upsert({

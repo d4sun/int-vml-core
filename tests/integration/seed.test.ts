@@ -5,6 +5,7 @@ import {
   SEED_USERS,
   seedDatabase,
 } from "../../prisma/seed-core"
+import { SEED_CATEGORIES } from "@/lib/categories/taxonomy"
 import { prismaAuthDatabase } from "@/lib/auth/config"
 import {
   prismaMembershipStore,
@@ -57,11 +58,45 @@ describe("seed on Postgres", () => {
       accounts: 4,
       vendors: 1,
       members: 2,
-      categories: 1,
+      categories: 7,
       listings: 1,
       products: 1,
       slots: 1,
     })
+  })
+
+  it("E9-S2-02: seeds the top-level categories, timed-slot, at the default commission, none nested", async () => {
+    await seedDatabase(prisma)
+
+    const rows = await prisma.category.findMany({ orderBy: { slug: "asc" } })
+
+    expect(rows.map((r) => r.slug)).toEqual(
+      [...SEED_CATEGORIES.map((c) => c.slug)].sort()
+    )
+    expect(rows.every((r) => r.parentId === null)).toBe(true)
+    expect(rows.every((r) => r.type === "TIMED_SLOT")).toBe(true)
+    expect(rows.every((r) => r.commissionBpsDefault === 1000)).toBe(true)
+  })
+
+  it("E9-S2-02: a re-seed keeps what an admin changed and restores a deleted category", async () => {
+    await seedDatabase(prisma)
+    await prisma.category.update({
+      where: { slug: "tours" },
+      data: { name: "Guided tours", commissionBpsDefault: 1500 },
+    })
+    await prisma.category.delete({ where: { slug: "music" } })
+
+    await seedDatabase(prisma)
+
+    const tours = await prisma.category.findUniqueOrThrow({
+      where: { slug: "tours" },
+    })
+
+    expect(tours).toMatchObject({
+      name: "Guided tours",
+      commissionBpsDefault: 1500,
+    })
+    expect(await prisma.category.count()).toBe(SEED_CATEGORIES.length)
   })
 
   it("TC-E0S3-38: a re-run adds a fresh slot only once the old one has passed", async () => {
