@@ -114,3 +114,42 @@ export function buildCategoryTree<T extends TreeRow>(
 
   return roots
 }
+
+export type FlatCategory<T extends TreeRow> = T & { depth: number }
+
+/** The forest as one list, parents before children, with each depth (0 = root). */
+export function flattenCategoryTree<T extends TreeRow>(
+  nodes: readonly CategoryNode<T>[],
+  depth = 0
+): FlatCategory<T>[] {
+  return nodes.flatMap((node) => {
+    const { children, ...row } = node
+
+    return [
+      { ...(row as unknown as T), depth },
+      ...flattenCategoryTree(children, depth + 1),
+    ]
+  })
+}
+
+/** `id` and everything beneath it, for hiding them as parent choices. */
+export function descendantIds(
+  rows: readonly TreeRow[],
+  id: string
+): Set<string> {
+  const found = new Set<string>([id])
+  let grew = true
+
+  while (grew) {
+    grew = false
+
+    for (const row of rows) {
+      if (row.parentId && found.has(row.parentId) && !found.has(row.id)) {
+        found.add(row.id)
+        grew = true
+      }
+    }
+  }
+
+  return found
+}
