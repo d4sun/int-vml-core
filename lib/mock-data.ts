@@ -68,7 +68,10 @@ export const CATEGORY_PILLS: { label: string; href: string }[] = [
   { label: "Music", href: "/music" },
 ]
 
-export type FooterColumn = { heading: string; links: { label: string; href: string }[] }
+export type FooterColumn = {
+  heading: string
+  links: { label: string; href: string }[]
+}
 
 export const FOOTER_COLUMNS: FooterColumn[] = [
   {
@@ -259,13 +262,62 @@ export type ExperienceCard = {
 }
 
 export const NEARBY_EXPERIENCES: ExperienceCard[] = [
-  { id: "n1", tag: "LANDMARKS", title: "Tower Bridge Exhibition", area: "City of London", price: "from £10.60", image: img("photo-1529655683826-aba9b3e77383") },
-  { id: "n2", tag: "MUSEUMS", title: "Churchill War Rooms", area: "Westminster", price: "from £25.00", image: img("photo-1543832923-44667a44c804") },
-  { id: "n3", tag: "ATTRACTIONS", title: "The Shard View", area: "London Bridge", price: "from £28.00", image: img("photo-1513635269975-59663e0ac1ad") },
-  { id: "n4", tag: "GALLERIES", title: "Tate Modern", area: "South Bank", price: "Free entry", image: img("photo-1554907984-15263bfd63bd") },
-  { id: "n5", tag: "THEATRE", title: "Shakespeare's Globe", area: "Bankside", price: "from £18.00", image: img("photo-1503095396549-807759245b35") },
-  { id: "n6", tag: "MUSEUMS", title: "HMS Belfast", area: "Southwark", price: "from £25.00", image: img("photo-1520986606214-8b456906c813") },
-  { id: "n7", tag: "EXPERIENCES", title: "London Eye", area: "South Bank", price: "from £29.00", image: img("photo-1532375810709-75b1da00537c") },
+  {
+    id: "n1",
+    tag: "LANDMARKS",
+    title: "Tower Bridge Exhibition",
+    area: "City of London",
+    price: "from £10.60",
+    image: img("photo-1529655683826-aba9b3e77383"),
+  },
+  {
+    id: "n2",
+    tag: "MUSEUMS",
+    title: "Churchill War Rooms",
+    area: "Westminster",
+    price: "from £25.00",
+    image: img("photo-1543832923-44667a44c804"),
+  },
+  {
+    id: "n3",
+    tag: "ATTRACTIONS",
+    title: "The Shard View",
+    area: "London Bridge",
+    price: "from £28.00",
+    image: img("photo-1513635269975-59663e0ac1ad"),
+  },
+  {
+    id: "n4",
+    tag: "GALLERIES",
+    title: "Tate Modern",
+    area: "South Bank",
+    price: "Free entry",
+    image: img("photo-1554907984-15263bfd63bd"),
+  },
+  {
+    id: "n5",
+    tag: "THEATRE",
+    title: "Shakespeare's Globe",
+    area: "Bankside",
+    price: "from £18.00",
+    image: img("photo-1503095396549-807759245b35"),
+  },
+  {
+    id: "n6",
+    tag: "MUSEUMS",
+    title: "HMS Belfast",
+    area: "Southwark",
+    price: "from £25.00",
+    image: img("photo-1520986606214-8b456906c813"),
+  },
+  {
+    id: "n7",
+    tag: "EXPERIENCES",
+    title: "London Eye",
+    area: "South Bank",
+    price: "from £29.00",
+    image: img("photo-1532375810709-75b1da00537c"),
+  },
 ]
 
 export const LONDON_VIDEOS = [
@@ -280,7 +332,11 @@ export const LONDON_VIDEOS = [
 // Filter facets for the category sidebar — keyed by category slug.
 // ---------------------------------------------------------------------------
 
-export type FacetGroup = { heading: string; options: { label: string; count: number }[]; collapsible?: boolean }
+export type FacetGroup = {
+  heading: string
+  options: { label: string; count: number }[]
+  collapsible?: boolean
+}
 
 export const DEFAULT_FACETS: FacetGroup[] = [
   {
@@ -338,7 +394,8 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
   attractions: {
     slug: "attractions",
     title: "London Attractions",
-    subtitle: "From world-famous landmarks to hidden gems — explore over 1,000 things to see and do across the capital.",
+    subtitle:
+      "From world-famous landmarks to hidden gems — explore over 1,000 things to see and do across the capital.",
     breadcrumb: ["Home", "Attractions"],
     heroImage: img("photo-1486299267070-83823f5448dd", 3),
     resultCount: 1415,

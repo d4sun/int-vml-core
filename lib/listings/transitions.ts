@@ -44,8 +44,9 @@ export function canVendorEdit(status: ListingStatus): boolean {
 
 /**
  * Fields that change what a tourist sees or books, so changing one on a
- * PUBLISHED listing needs a fresh review. (Images are edited by their own
- * operations, E5-S1-02.)
+ * PUBLISHED listing needs a fresh review. `images` stands for **adding** a
+ * picture (it is the thing most in need of moderation); removing or
+ * reordering pictures cannot show anything new and needs no review.
  */
 export const MAJOR_FIELDS = [
   "title",
@@ -54,6 +55,7 @@ export const MAJOR_FIELDS = [
   "address",
   "lat",
   "lng",
+  "images",
 ] as const
 
 export type MajorField = (typeof MAJOR_FIELDS)[number]

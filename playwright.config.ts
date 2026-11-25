@@ -18,6 +18,7 @@ const appEnv = {
   // CI serves a production build, which refuses the in-memory Stripe fake
   // unless it is asked for by name and given its own webhook secret.
   STRIPE_ADAPTER: "fake",
+  STORAGE_ADAPTER: "fake",
   STRIPE_WEBHOOK_SECRET: "whsec_e2e_only_not_used_in_production",
   NEXT_TELEMETRY_DISABLED: "1",
 }

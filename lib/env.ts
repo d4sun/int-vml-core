@@ -84,6 +84,21 @@ export const envSchema = z
         .optional()
     ),
 
+    // Listing pictures (S3 or an S3-compatible service). Without them,
+    // development and tests use the in-memory fake; production refuses to
+    // start. `STORAGE_ADAPTER=fake` is the explicit opt-in the e2e suite uses
+    // to run a production build (see `lib/storage/index.ts`).
+    S3_BUCKET: optionalString,
+    S3_REGION: optionalString,
+    S3_ACCESS_KEY_ID: optionalString,
+    S3_SECRET_ACCESS_KEY: optionalString,
+    S3_ENDPOINT: optionalUrl,
+    S3_PUBLIC_BASE_URL: optionalUrl,
+    STORAGE_ADAPTER: z.preprocess(
+      blankToUndefined,
+      z.literal("fake").optional()
+    ),
+
     // Better Auth. The secret is optional here because tests and local tooling
     // do not need it; the auth config tightens this rule where it is consumed.
     BETTER_AUTH_SECRET: optionalString,
@@ -100,6 +115,35 @@ export const envSchema = z
         path: ["EMAIL_FROM"],
         message: "Required when BREVO_API_KEY is set",
       })
+    }
+
+    const s3 = [
+      "S3_BUCKET",
+      "S3_REGION",
+      "S3_ACCESS_KEY_ID",
+      "S3_SECRET_ACCESS_KEY",
+      "S3_PUBLIC_BASE_URL",
+    ] as const
+    const anyS3 = s3.some((key) => env[key]) || env.S3_ENDPOINT
+
+    if (anyS3) {
+      for (const key of s3) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Required when any S3 setting is given",
+          })
+        }
+      }
+
+      if (env.STORAGE_ADAPTER === "fake") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["STORAGE_ADAPTER"],
+          message: "Cannot be combined with S3 settings",
+        })
+      }
     }
 
     if (env.STRIPE_SECRET_KEY && env.STRIPE_ADAPTER === "fake") {
