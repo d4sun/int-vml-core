@@ -64,16 +64,16 @@ const toRecord = (row: Row): ProductRecord => ({
   policy: parseProductPolicy(row.policy),
 })
 
-async function setup(deps: ProductDeps) {
+export async function productContext(deps: ProductDeps) {
   const ctx = await listingContext(deps as ListingDeps)
 
   return { ...ctx, db: (deps.db ?? ctx.db) as NonNullable<ProductDeps["db"]> }
 }
 
 /** The caller's own vendor's product, or a refusal that hides which it was. */
-async function loadOwnedProduct(
+export async function loadOwnedProduct(
   id: string,
-  ctx: Awaited<ReturnType<typeof setup>>
+  ctx: Awaited<ReturnType<typeof productContext>>
 ) {
   const row = await ctx.db.product.findUnique({
     where: { id },
@@ -88,7 +88,7 @@ async function loadOwnedProduct(
   return { product: row, listing }
 }
 
-function editableOrThrow(status: Parameters<typeof canVendorEdit>[0]) {
+export function editableOrThrow(status: Parameters<typeof canVendorEdit>[0]) {
   if (!canVendorEdit(status)) {
     throw new ConflictError(
       status === "PENDING_REVIEW"
@@ -109,7 +109,7 @@ export async function createProduct(
   input: unknown,
   deps: ProductDeps = {}
 ): Promise<ProductRecord> {
-  const ctx = await setup(deps)
+  const ctx = await productContext(deps)
 
   await requireUser(ctx.session)
 
@@ -144,7 +144,7 @@ export async function updateProduct(
   input: unknown,
   deps: ProductDeps = {}
 ): Promise<ProductRecord> {
-  const ctx = await setup(deps)
+  const ctx = await productContext(deps)
 
   await requireUser(ctx.session)
 
@@ -191,7 +191,7 @@ export async function deleteProduct(
   input: unknown,
   deps: ProductDeps = {}
 ): Promise<{ id: string }> {
-  const ctx = await setup(deps)
+  const ctx = await productContext(deps)
 
   await requireUser(ctx.session)
 
@@ -234,7 +234,7 @@ export async function listListingProducts(
   input: unknown,
   deps: ProductDeps = {}
 ): Promise<ProductRecord[]> {
-  const ctx = await setup(deps)
+  const ctx = await productContext(deps)
 
   await requireUser(ctx.session)
 

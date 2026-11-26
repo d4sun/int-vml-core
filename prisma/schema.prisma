@@ -278,13 +278,15 @@ model Availability {
   capacity      Int
   remaining     Int
   priceOverride Int?     // pence
+  // A closed slot takes no new bookings; existing bookings are untouched.
+  closed        Boolean  @default(false)
   createdAt     DateTime @default(now())
 
   product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   bookingItems BookingItem[]
   holds        Hold[]
 
-  @@index([productId, startAt])
+  @@unique([productId, startAt])
 }
 
 // ---------------------------------------------------------------------------
