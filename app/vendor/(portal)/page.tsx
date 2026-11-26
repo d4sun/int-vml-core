@@ -10,7 +10,10 @@ export default async function VendorHomePage() {
       <p className="text-sm text-muted-foreground">
         Your listings, bookings and payouts will appear here.
       </p>
-      <p className="mt-4 text-sm">
+      <p className="mt-4 flex gap-4 text-sm">
+        <Link href="/vendor/listings" className="underline">
+          Listings
+        </Link>
         <Link href="/vendor/payouts/setup" className="underline">
           Payout setup
         </Link>
