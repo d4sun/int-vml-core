@@ -59,7 +59,7 @@ const SELECT = {
 /** Owners and staff both manage listings; the vendor's team is E7. */
 const ROLES = ["OWNER", "STAFF"] as const
 
-async function context(deps: ListingDeps) {
+export async function listingContext(deps: ListingDeps) {
   const session = deps.session ?? requestSessionSource
   const db = deps.db ?? (await import("@/lib/prisma")).prisma
 
@@ -71,7 +71,7 @@ async function context(deps: ListingDeps) {
 }
 
 /** Only an APPROVED vendor creates, edits or submits listings. */
-async function assertApproved(
+export async function assertVendorApproved(
   db: Pick<PrismaClient, "vendor">,
   vendorId: string
 ): Promise<void> {
@@ -109,9 +109,9 @@ async function assertCategory(
  * that does not exist and one that belongs to someone else are the same
  * ForbiddenError, so this cannot be used to discover other vendors' listings.
  */
-async function loadOwned(
+export async function loadOwnedListing(
   id: string,
-  ctx: Awaited<ReturnType<typeof context>>
+  ctx: Awaited<ReturnType<typeof listingContext>>
 ): Promise<ListingRecord> {
   const listing = await ctx.db.listing.findUnique({
     where: { id },
@@ -136,7 +136,7 @@ export async function createListing(
   input: unknown,
   deps: ListingDeps = {}
 ): Promise<ListingRecord> {
-  const ctx = await context(deps)
+  const ctx = await listingContext(deps)
 
   await requireUser(ctx.session)
 
@@ -150,7 +150,7 @@ export async function createListing(
     session: ctx.session,
     memberships: ctx.memberships,
   })
-  await assertApproved(ctx.db, data.vendorId)
+  await assertVendorApproved(ctx.db, data.vendorId)
   await assertCategory(ctx.db, data.categoryId)
 
   const suffix = deps.suffix ?? randomSlugSuffix
@@ -183,7 +183,7 @@ export async function updateListing(
   input: unknown,
   deps: ListingDeps = {}
 ): Promise<ListingRecord> {
-  const ctx = await context(deps)
+  const ctx = await listingContext(deps)
 
   await requireUser(ctx.session)
 
@@ -192,9 +192,9 @@ export async function updateListing(
   if (!parsed.success) throw toNormalizedError(parsed.error)
 
   const { id, ...changes } = parsed.data
-  const current = await loadOwned(id, ctx)
+  const current = await loadOwnedListing(id, ctx)
 
-  await assertApproved(ctx.db, current.vendorId)
+  await assertVendorApproved(ctx.db, current.vendorId)
 
   if (!canVendorEdit(current.status)) {
     throw new ConflictError(
@@ -252,7 +252,7 @@ export async function submitListing(
   input: unknown,
   deps: ListingDeps = {}
 ): Promise<ListingRecord> {
-  const ctx = await context(deps)
+  const ctx = await listingContext(deps)
 
   await requireUser(ctx.session)
 
@@ -260,9 +260,9 @@ export async function submitListing(
 
   if (!parsed.success) throw toNormalizedError(parsed.error)
 
-  const current = await loadOwned(parsed.data.id, ctx)
+  const current = await loadOwnedListing(parsed.data.id, ctx)
 
-  await assertApproved(ctx.db, current.vendorId)
+  await assertVendorApproved(ctx.db, current.vendorId)
 
   const status = nextListingStatus(current.status, "submit")
 
@@ -294,7 +294,7 @@ export async function listVendorListings(
   input: { vendorId: string },
   deps: ListingDeps = {}
 ): Promise<ListingRecord[]> {
-  const ctx = await context(deps)
+  const ctx = await listingContext(deps)
 
   await requireVendorMember(input.vendorId, ROLES, {
     session: ctx.session,
@@ -313,9 +313,9 @@ export async function getVendorListing(
   input: { id: string },
   deps: ListingDeps = {}
 ): Promise<ListingRecord> {
-  const ctx = await context(deps)
+  const ctx = await listingContext(deps)
 
   await requireUser(ctx.session)
 
-  return loadOwned(input.id, ctx)
+  return loadOwnedListing(input.id, ctx)
 }

@@ -165,4 +165,32 @@ describe("parseEnv", () => {
       })
     ).toContain("Cannot be combined")
   })
+  it("E5-S1-02: S3 settings are all-or-nothing, and cannot be combined with the fake", () => {
+    expect(parseEnv({ ...base, S3_BUCKET: "" }).S3_BUCKET).toBeUndefined()
+    expect(parseError({ ...base, S3_BUCKET: "b" })).toContain("S3_REGION")
+    expect(
+      parseEnv({
+        ...base,
+        S3_BUCKET: "b",
+        S3_REGION: "eu-west-2",
+        S3_ACCESS_KEY_ID: "id",
+        S3_SECRET_ACCESS_KEY: "secret",
+        S3_PUBLIC_BASE_URL: "https://cdn.example.com",
+      }).S3_BUCKET
+    ).toBe("b")
+    expect(
+      parseError({
+        ...base,
+        S3_BUCKET: "b",
+        S3_REGION: "r",
+        S3_ACCESS_KEY_ID: "i",
+        S3_SECRET_ACCESS_KEY: "s",
+        S3_PUBLIC_BASE_URL: "https://cdn.example.com",
+        STORAGE_ADAPTER: "fake",
+      })
+    ).toContain("Cannot be combined")
+    expect(parseError({ ...base, STORAGE_ADAPTER: "real" })).toContain(
+      "STORAGE_ADAPTER"
+    )
+  })
 })

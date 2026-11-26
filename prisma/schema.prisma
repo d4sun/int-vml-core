@@ -228,7 +228,6 @@ model Listing {
   lat         Float?
   lng         Float?
   address     String?
-  images      String[]      @default([]) // S3 asset keys
   status      ListingStatus @default(DRAFT)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -238,6 +237,7 @@ model Listing {
   products Product[]
   reviews  Review[]
   tripItems TripItem[]
+  images   ListingImage[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -408,6 +408,22 @@ model Hold {
 
   @@index([availabilityId])
   @@index([expiresAt])
+}
+
+// One uploaded picture of a listing. `key` is the object key in storage;
+// `position` orders the gallery (0 is the cover) and is kept contiguous.
+model ListingImage {
+  id          String   @id @default(uuid())
+  listingId   String
+  key         String   @unique
+  position    Int
+  contentType String
+  sizeBytes   Int
+  createdAt   DateTime @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, position])
 }
 
 // Idempotent Stripe webhook processing.

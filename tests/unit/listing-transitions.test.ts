@@ -73,6 +73,7 @@ describe("isMajorEdit", () => {
       "address",
       "categoryId",
       "description",
+      "images",
       "lat",
       "lng",
       "title",
@@ -80,8 +81,9 @@ describe("isMajorEdit", () => {
   })
 
   it("is major if any changed field is, and not for unknown or no fields", () => {
-    expect(isMajorEdit(["images", "title"])).toBe(true)
-    expect(isMajorEdit(["images"])).toBe(false)
+    expect(isMajorEdit(["images"])).toBe(true)
+    expect(isMajorEdit(["slug", "title"])).toBe(true)
+    expect(isMajorEdit(["slug"])).toBe(false)
     expect(isMajorEdit([])).toBe(false)
   })
 })
