@@ -319,3 +319,56 @@ export async function getVendorListing(
 
   return loadOwnedListing(input.id, ctx)
 }
+
+export type VendorContext = {
+  vendor: { id: string; name: string; status: string }
+  role: "OWNER" | "STAFF"
+  otherVendors: { id: string; name: string }[]
+}
+
+/**
+ * The caller's vendor for the listing pages (CR-2): found through their
+ * memberships, never by an id alone. `vendorId` only chooses among their own
+ * vendors; one that is not theirs is ignored. `null` when they belong to none.
+ */
+export async function getVendorContext(
+  input: { vendorId?: string } = {},
+  deps: ListingDeps = {}
+): Promise<VendorContext | null> {
+  const ctx = await listingContext(deps)
+  const actor = await requireUser(ctx.session)
+  const memberships = await ctx.db.vendorMember.findMany({
+    where: { userId: actor.id },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      role: true,
+      vendor: { select: { id: true, name: true, status: true } },
+    },
+  })
+  const current =
+    memberships.find((m) => m.vendor.id === input.vendorId) ?? memberships[0]
+
+  if (!current) return null
+
+  return {
+    vendor: current.vendor,
+    role: current.role,
+    otherVendors: memberships
+      .filter((m) => m.vendor.id !== current.vendor.id)
+      .map((m) => m.vendor),
+  }
+}
+
+/** Categories a vendor can file a listing under. Any signed-in vendor member. */
+export async function listCategoryOptions(
+  deps: ListingDeps = {}
+): Promise<{ id: string; name: string }[]> {
+  const ctx = await listingContext(deps)
+
+  await requireUser(ctx.session)
+
+  return ctx.db.category.findMany({
+    select: { id: true, name: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+  })
+}
