@@ -6,7 +6,7 @@ import { useState } from "react"
 import { ChevronDown, Search, Menu, Globe, X } from "lucide-react"
 import { cn } from "cn"
 import { Logo } from "@/components/brand/logo"
-import { PRIMARY_NAV, type NavItem } from "@/lib/mock-data"
+import { PRIMARY_NAV, type NavItem } from "@/lib/site/navigation"
 
 export function SiteHeader() {
   const pathname = usePathname()

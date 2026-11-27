@@ -4,7 +4,7 @@ import { useState } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "cn"
 import { Button } from "@/components/ui/button"
-import type { FacetGroup } from "@/lib/mock-data"
+import type { FacetGroup } from "@/lib/site/categories"
 
 export function FilterSidebar({ facets, showPlaces }: { facets: FacetGroup[]; showPlaces: number }) {
   return (

@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Globe, AtSign, Camera, Film, Rss, Mail } from "lucide-react"
 import { Logo } from "@/components/brand/logo"
-import { FOOTER_COLUMNS } from "@/lib/mock-data"
+import { FOOTER_COLUMNS } from "@/lib/site/navigation"
 
 // NOTE: lucide-react@1.70.0 (pinned in this repo) ships only generic glyphs —
 // brand icons (Facebook/Instagram/YouTube/Twitter) were removed from lucide for
