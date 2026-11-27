@@ -81,3 +81,30 @@ export function londonLocalToUtc(local: LocalParts): Date {
   // Nonexistent (spring gap): the GMT reading is the shifted-forward time.
   return new Date(asUtc)
 }
+
+/**
+ * The UTC instants that bound one London calendar day: `from` is local
+ * midnight that starts it, `to` the midnight that ends it (exclusive). Used to
+ * find slots that fall on a London date, across BST and GMT changes.
+ */
+export function londonDayBounds(day: {
+  year: number
+  month: number
+  day: number
+}): {
+  from: Date
+  to: Date
+} {
+  const next = new Date(Date.UTC(day.year, day.month - 1, day.day + 1))
+
+  return {
+    from: londonLocalToUtc({ ...day, hour: 0, minute: 0 }),
+    to: londonLocalToUtc({
+      year: next.getUTCFullYear(),
+      month: next.getUTCMonth() + 1,
+      day: next.getUTCDate(),
+      hour: 0,
+      minute: 0,
+    }),
+  }
+}

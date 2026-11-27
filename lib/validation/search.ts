@@ -29,6 +29,15 @@ export const searchQuerySchema = z
       .max(100)
       .optional()
       .transform((value) => (value ? value : undefined)),
+    /** A London calendar date, YYYY-MM-DD: matches slots that start on that day. */
+    date: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => (value ? value : undefined))
+      .refine((value) => value === undefined || isRealDate(value), {
+        message: "Choose a real date",
+      }),
     minPrice: pence.optional(),
     maxPrice: pence.optional(),
     page: z.number().int().min(1).max(SEARCH_MAX_PAGE).default(1),
@@ -43,5 +52,25 @@ export const searchQuerySchema = z
       path: ["maxPrice"],
     }
   )
+
+/** A YYYY-MM-DD string that names a real calendar day (no 31 February). */
+export function isRealDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+
+  if (!match) return false
+
+  const [year, month, day] = [
+    Number(match[1]),
+    Number(match[2]),
+    Number(match[3]),
+  ]
+  const date = new Date(Date.UTC(year, month - 1, day))
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  )
+}
 
 export type SearchQuery = z.infer<typeof searchQuerySchema>
