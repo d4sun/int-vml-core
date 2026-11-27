@@ -2,6 +2,10 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { NearbyRail } from "@/components/brand/nearby-rail"
+import { SaveToTrip } from "@/components/trips/save-to-trip"
+import { UnauthenticatedError } from "@/lib/errors"
+import { listTrips } from "@/lib/services/trip"
+import { saveToTripAction } from "@/app/(www)/trips/actions"
 import { formatFromPrice, toListingCards } from "@/lib/listings/card"
 import { buildListingJsonLd, jsonLdScript } from "@/lib/listings/json-ld"
 import { getPublicListing } from "@/lib/listings/public"
@@ -55,6 +59,14 @@ export default async function ListingPage({
           east: listing.lng + NEARBY_DEGREES,
         })
       : null
+
+  // Trips are only for signed-in visitors; everyone else is asked to sign in.
+  const trips = await listTrips()
+    .then((rows) => rows.map((trip) => ({ id: trip.id, name: trip.name })))
+    .catch((error: unknown) => {
+      if (error instanceof UnauthenticatedError) return null
+      throw error
+    })
 
   const nearbyCards = nearby
     ? toListingCards(
@@ -154,6 +166,28 @@ export default async function ListingPage({
                 ))}
               </ul>
             )}
+            <div className="mt-6 border-t border-border pt-5">
+              <h3 className="text-sm font-bold text-vml-ink">Save for later</h3>
+              <div className="mt-3">
+                {trips === null ? (
+                  <p className="text-sm text-muted-foreground">
+                    <a
+                      href={`/sign-in?next=/listings/${listing.slug}`}
+                      className="font-medium text-vml-navy underline-offset-4 hover:underline"
+                    >
+                      Sign in
+                    </a>{" "}
+                    to save this place to a trip.
+                  </p>
+                ) : (
+                  <SaveToTrip
+                    listingId={listing.id}
+                    trips={trips}
+                    action={saveToTripAction}
+                  />
+                )}
+              </div>
+            </div>
           </aside>
         </div>
       </main>
