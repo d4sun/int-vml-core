@@ -2,12 +2,14 @@ import type { ListingStatus, PrismaClient } from "@prisma/client"
 import { toNormalizedError } from "@/lib/actions/result"
 import { requireAdmin, type SessionSource } from "@/lib/auth/guards"
 import { assertVendorCanSell } from "@/lib/catalog/visibility"
+import type { TransactionalEmailQueue } from "@/lib/email/transactional-queue"
 import { ConflictError, NotFoundError } from "@/lib/errors"
 import {
   moderationAuditAction,
   nextModerationStatus,
 } from "@/lib/listings/moderation"
 import { audit } from "@/lib/services/audit"
+import { notifyListingModeration } from "@/lib/services/listing-moderation-notifications"
 import { listingModerationSchema } from "@/lib/validation/listing-moderation"
 
 export type ModeratedListing = {
@@ -21,6 +23,10 @@ export type ListingModerationDeps = {
   db?: Pick<PrismaClient, "$transaction">
   /** Overridable so tests can prove the status change and audit row are atomic. */
   record?: typeof audit.record
+  /** Where the decision email is enqueued (inside the transaction). */
+  emailQueue?: TransactionalEmailQueue
+  /** Public origin used in email links; defaults to `BETTER_AUTH_URL`. */
+  appUrl?: string
 }
 
 /**
@@ -49,11 +55,18 @@ export async function moderateListing(
   const { listingId, action, reason } = parsed.data
   const db = deps.db ?? (await import("@/lib/prisma")).prisma
   const record = deps.record ?? audit.record
+  const emailQueue =
+    deps.emailQueue ??
+    (await (
+      await import("@/lib/jobs/transactional")
+    ).getTransactionalEmailQueue())
+  const appUrl =
+    deps.appUrl ?? (await import("@/lib/env")).getEnv().BETTER_AUTH_URL
 
   return db.$transaction(async (tx) => {
     const listing = await tx.listing.findUnique({
       where: { id: listingId },
-      select: { id: true, vendorId: true, status: true },
+      select: { id: true, vendorId: true, status: true, title: true },
     })
 
     if (!listing) throw new NotFoundError("Listing not found")
@@ -75,7 +88,7 @@ export async function moderateListing(
       )
     }
 
-    await record(tx, {
+    const auditId = await record(tx, {
       actorId: actor.id,
       action: moderationAuditAction(action),
       entityType: "Listing",
@@ -86,6 +99,18 @@ export async function moderateListing(
         to: next,
         ...(reason ? { reason } : {}),
       },
+    })
+
+    await notifyListingModeration(tx, emailQueue, {
+      action,
+      auditId,
+      listing: {
+        id: listing.id,
+        title: listing.title,
+        vendorId: listing.vendorId,
+      },
+      appUrl,
+      ...(reason ? { reason } : {}),
     })
 
     return { id: listing.id, vendorId: listing.vendorId, status: next }
