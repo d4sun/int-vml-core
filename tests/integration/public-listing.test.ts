@@ -1,7 +1,7 @@
 import type { PrismaClient, VendorStatus } from "@prisma/client"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { getPublicListing } from "@/lib/listings/public"
-import { searchListings } from "@/lib/search/service"
+import { listSearchCategories, searchListings } from "@/lib/search/service"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
 
 let prisma: PrismaClient
@@ -116,5 +116,20 @@ describe("public listing read model (Postgres)", () => {
     const page = await searchListings({}, { db: prisma })
 
     expect(page.listings[0]?.imageKey).toBe("first")
+  })
+})
+
+describe("map and filter data (Postgres)", () => {
+  it("search results carry coordinates for the map, and the category list is sorted by name", async () => {
+    await make("mapped")
+    await prisma.category.create({
+      data: { name: "Arts", slug: "arts", type: "TIMED_SLOT" },
+    })
+
+    const page = await searchListings({}, { db: prisma })
+    const categories = await listSearchCategories({ db: prisma })
+
+    expect(page.listings[0]).toMatchObject({ lat: 51.5, lng: -0.1 })
+    expect(categories.map((c) => c.name)).toEqual(["Arts", "Tours"])
   })
 })

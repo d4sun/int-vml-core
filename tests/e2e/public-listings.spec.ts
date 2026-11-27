@@ -52,3 +52,37 @@ test("E2E-S1-01: a published listing is found on /explore, its page has real pri
   const response = await page.goto(`/listings/${draft.slug}`)
   expect(response?.status()).toBe(404)
 })
+
+test("E2E-S1-02: the filters narrow the results through the form, and the map shows the places", async ({
+  page,
+  request,
+}) => {
+  const { email } = await createVerifiedUser(request)
+  const vendor = await createVendorFor(email, "APPROVED")
+  await setVendorOnboarded(vendor.id)
+
+  const token = unique()
+  const first = `First ${token} walk`
+  const second = `Second ${token} walk`
+  // Both are priced at £15.00 by the helper, so a £10 maximum leaves nothing.
+  await createListingWithStatus(vendor.id, first, "PUBLISHED")
+  await createListingWithStatus(vendor.id, second, "PUBLISHED")
+
+  await page.goto(`/explore?q=${encodeURIComponent(token)}`)
+  await expect(page.getByTestId("explore-results")).toContainText(first)
+  await expect(page.getByTestId("explore-results")).toContainText(second)
+
+  // Set a maximum price of £10 through the form.
+  await page.getByLabel("Maximum price in pounds").fill("10")
+  await page.getByRole("button", { name: "Apply filters" }).click()
+
+  await expect(page).toHaveURL(/maxPounds=10/)
+  await expect(page.getByTestId("explore-count")).toContainText("0 places")
+
+  // The map is drawn with its controls.
+  await page.goto(`/explore?q=${encodeURIComponent(token)}`)
+  await expect(page.locator(".leaflet-container")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Search this area" })
+  ).toBeVisible()
+})
