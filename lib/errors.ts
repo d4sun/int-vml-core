@@ -4,6 +4,7 @@ export type AppErrorCode =
   | "FORBIDDEN"
   | "CONFLICT"
   | "VALIDATION"
+  | "RATE_LIMITED"
   | "INTERNAL"
 
 export type FieldErrors = Record<string, string[]>
@@ -59,6 +60,16 @@ export class ForbiddenError extends AppError {
     options: AppErrorOptions = {}
   ) {
     super(message, "FORBIDDEN", 403, options)
+  }
+}
+
+/** Too many requests in a short time (CR-8). The caller should wait and try again. */
+export class RateLimitedError extends AppError {
+  constructor(
+    message = "Too many changes in a short time. Try again in a few minutes.",
+    options: AppErrorOptions = {}
+  ) {
+    super(message, "RATE_LIMITED", 429, options)
   }
 }
 
