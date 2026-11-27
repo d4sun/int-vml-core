@@ -269,3 +269,42 @@ describe("availability-aware date filter (Postgres)", () => {
     ).rejects.toThrow()
   })
 })
+
+async function located(title: string, lat: number | null, lng: number | null) {
+  n += 1
+  const v = await vendor("APPROVED")
+
+  return prisma.listing.create({
+    data: {
+      vendorId: v.id,
+      categoryId: tours,
+      title,
+      slug: `geo-${n}`,
+      status: "PUBLISHED",
+      lat,
+      lng,
+    },
+  })
+}
+
+describe("map viewport search (Postgres)", () => {
+  it("TC-E1S1-05: only listings inside the viewport are returned, nearest the centre first", async () => {
+    await located("Centre", 51.5, -0.12) // inside
+    await located("Edge", 51.52, -0.05) // inside but further from the centre
+    await located("Far north", 52.4, -0.1) // outside
+    await located("Unlocated", null, null) // cannot be on a map
+
+    const box = { south: 51.4, north: 51.6, west: -0.3, east: 0 }
+    const got = await titles(box)
+
+    expect(got).toEqual(["Centre", "Edge"])
+  })
+
+  it("an area with nothing in it returns nothing", async () => {
+    await located("Centre", 51.5, -0.12)
+
+    expect(await titles({ south: 10, north: 11, west: 10, east: 11 })).toEqual(
+      []
+    )
+  })
+})
