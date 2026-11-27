@@ -110,7 +110,7 @@ describe("URL search parameters", () => {
   it("reads numbers and text, and drops absent keys", () => {
     const input = searchInputFromParams({
       q: "thames",
-      minPrice: "500",
+      minPounds: "5",
       page: "2",
     })
 
@@ -118,7 +118,7 @@ describe("URL search parameters", () => {
   })
 
   it("keeps a non-number as NaN so the schema refuses it", () => {
-    const input = searchInputFromParams({ minPrice: "lots" })
+    const input = searchInputFromParams({ minPounds: "lots" })
 
     expect(Number.isNaN(input.minPrice)).toBe(true)
   })

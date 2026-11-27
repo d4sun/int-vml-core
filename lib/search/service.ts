@@ -19,6 +19,9 @@ export type SearchResult = {
   fromPrice: number | null
   /** Storage key of the first picture, or null when there is none. */
   imageKey: string | null
+  /** Where the listing is, for the map; null when the vendor gave none. */
+  lat: number | null
+  lng: number | null
 }
 
 export type SearchPage = {
@@ -29,7 +32,7 @@ export type SearchPage = {
 }
 
 export type SearchDeps = {
-  db?: Pick<PrismaClient, "listing" | "$queryRaw">
+  db?: Pick<PrismaClient, "listing" | "category" | "$queryRaw">
 }
 
 /**
@@ -72,6 +75,8 @@ export async function searchListings(
       id: true,
       title: true,
       slug: true,
+      lat: true,
+      lng: true,
       category: { select: { name: true } },
       vendor: { select: { name: true } },
       products: {
@@ -101,6 +106,8 @@ export async function searchListings(
       vendorName: row.vendor.name,
       fromPrice: row.products[0]?.basePrice ?? null,
       imageKey: row.images[0]?.key ?? null,
+      lat: row.lat,
+      lng: row.lng,
     }))
 
   return {
@@ -248,4 +255,18 @@ function distanceSql(centre: LatLng): Prisma.Sql {
     cos(radians(${centre.lat})) * cos(radians(l."lat")) *
     power(sin(radians((l."lng" - ${centre.lng}) / 2)), 2)
   )))`
+}
+
+export type SearchCategory = { slug: string; name: string }
+
+/** Every category, for the category filter. Names and slugs only. */
+export async function listSearchCategories(
+  deps: SearchDeps = {}
+): Promise<SearchCategory[]> {
+  const db = deps.db ?? (await import("@/lib/prisma")).prisma
+
+  return db.category.findMany({
+    select: { slug: true, name: true },
+    orderBy: { name: "asc" },
+  })
 }
