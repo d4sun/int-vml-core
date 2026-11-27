@@ -41,3 +41,19 @@ describe("trip input", () => {
     ).toBe(false)
   })
 })
+
+import { reorderTripSchema } from "@/lib/validation/trip"
+
+describe("reorder input", () => {
+  it("accepts a list of item ids and refuses a repeated id", () => {
+    expect(
+      reorderTripSchema.safeParse({ tripId: "t", itemIds: ["a", "b"] }).success
+    ).toBe(true)
+    expect(
+      reorderTripSchema.safeParse({ tripId: "t", itemIds: ["a", "a"] }).success
+    ).toBe(false)
+    expect(
+      reorderTripSchema.safeParse({ tripId: "t", itemIds: [] }).success
+    ).toBe(false)
+  })
+})
