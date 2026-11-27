@@ -192,3 +192,15 @@ export async function createListingWithStatus(
 
   return { id: listing.id, slug: listing.slug }
 }
+
+/** A vendor's commission override in basis points, or null for the category defaults. */
+export async function vendorCommission(
+  vendorId: string
+): Promise<number | null> {
+  const vendor = await db().vendor.findUniqueOrThrow({
+    where: { id: vendorId },
+    select: { commissionBpsOverride: true },
+  })
+
+  return vendor.commissionBpsOverride
+}

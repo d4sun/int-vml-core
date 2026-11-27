@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { VendorActions } from "@/components/admin/vendor-actions"
+import { VendorCommissionForm } from "@/components/admin/vendor-commission-form"
 import { VendorStatusBadge } from "@/components/admin/vendor-status-badge"
 import { SurfaceShell } from "@/components/surface-shell"
 import { enforceSurface } from "@/lib/auth/enforce-surface"
@@ -12,7 +13,7 @@ import {
   readAuditDetails,
 } from "@/lib/vendors/presentation"
 import { allowedActions } from "@/lib/vendors/transitions"
-import { transitionVendorAction } from "./actions"
+import { setVendorCommissionAction, transitionVendorAction } from "./actions"
 
 export const metadata: Metadata = { title: "Vendor" }
 
@@ -70,6 +71,27 @@ export default async function AdminVendorPage({
             {vendor.description ? (
               <p className="mt-4 text-sm text-vml-ink">{vendor.description}</p>
             ) : null}
+          </section>
+
+          <section
+            aria-labelledby="commission"
+            className="rounded-2xl border border-border bg-card p-5"
+          >
+            <h2 id="commission" className="text-lg font-bold text-vml-ink">
+              Commission
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {vendor.commissionBpsOverride === null
+                ? "Using each category's default commission."
+                : `This vendor pays ${vendor.commissionBpsOverride / 100}% on its sales, whatever the category default is.`}
+            </p>
+            <div className="mt-4">
+              <VendorCommissionForm
+                vendorId={vendor.id}
+                current={vendor.commissionBpsOverride}
+                action={setVendorCommissionAction}
+              />
+            </div>
           </section>
 
           <section
