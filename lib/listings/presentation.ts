@@ -1,4 +1,5 @@
 import type { ListingStatus } from "@prisma/client"
+import type { SellBlockReason } from "@/lib/catalog/visibility"
 
 export const LISTING_STATUS_LABEL: Record<ListingStatus, string> = {
   DRAFT: "Draft",
@@ -17,4 +18,10 @@ export const LISTING_STATUS_HELP: Record<ListingStatus, string> = {
     "Live on the site. Changing the title, description, category, location or adding a picture sends it back for review.",
   REJECTED: "This listing wasn't approved. Fix it and submit it again.",
   ARCHIVED: "This listing is closed.",
+}
+
+/** Why an admin cannot approve a listing from this vendor yet, in plain words. */
+export const SELL_BLOCK_LABEL: Record<SellBlockReason, string> = {
+  NOT_APPROVED: "The vendor is not approved yet",
+  NOT_ONBOARDED: "The vendor has not finished payout setup",
 }
