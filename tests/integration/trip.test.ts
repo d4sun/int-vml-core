@@ -9,7 +9,9 @@ import {
   listTrips,
   removeTripItem,
   renameTrip,
+  reorderTripItems,
 } from "@/lib/services/trip"
+import { ConflictError } from "@/lib/errors"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
 
 let prisma: PrismaClient
@@ -160,5 +162,70 @@ describe("trips (Postgres)", () => {
 
     expect(await prisma.tripItem.count()).toBe(0)
     expect(await prisma.listing.count({ where: { id: a.id } })).toBe(1)
+  })
+
+  it("TC-E1S2-02: a reorder puts the items in the new order, positions 0..n-1 with no gaps or repeats", async () => {
+    const u = await tourist("olive@example.com")
+    const trip = await createTrip({ name: "Summer" }, deps(u))
+    const ids: string[] = []
+    for (let i = 0; i < 3; i++) {
+      const l = await listing()
+      ids.push(
+        (
+          await addTripItem({ tripId: trip.id, listingId: l.id }, deps(u))
+        ).items.at(-1)!.id
+      )
+    }
+
+    const reordered = await reorderTripItems(
+      { tripId: trip.id, itemIds: [ids[2]!, ids[0]!, ids[1]!] },
+      deps(u)
+    )
+
+    expect(reordered.items.map((i) => i.id)).toEqual([ids[2], ids[0], ids[1]])
+    expect(reordered.items.map((i) => i.position)).toEqual([0, 1, 2])
+  })
+
+  it("a reorder that leaves an item out, or adds one that is not there, is refused and nothing moves", async () => {
+    const u = await tourist("olive@example.com")
+    const trip = await createTrip({ name: "Summer" }, deps(u))
+    const a = await addTripItem(
+      { tripId: trip.id, listingId: (await listing()).id },
+      deps(u)
+    )
+    const withTwo = await addTripItem(
+      { tripId: trip.id, listingId: (await listing()).id },
+      deps(u)
+    )
+    const [first, second] = withTwo.items.map((i) => i.id) as [string, string]
+    void a
+
+    await expect(
+      reorderTripItems({ tripId: trip.id, itemIds: [second] }, deps(u))
+    ).rejects.toThrow(ConflictError)
+    await expect(
+      reorderTripItems(
+        { tripId: trip.id, itemIds: [second, first, "ghost"] },
+        deps(u)
+      )
+    ).rejects.toThrow(ConflictError)
+
+    const after = await getTrip(trip.id, deps(u))
+    expect(after.items.map((i) => i.id)).toEqual([first, second])
+  })
+
+  it("another visitor cannot reorder a trip", async () => {
+    const owner = await tourist("owner@example.com")
+    const other = await tourist("other@example.com")
+    const trip = await createTrip({ name: "Mine" }, deps(owner))
+    const withOne = await addTripItem(
+      { tripId: trip.id, listingId: (await listing()).id },
+      deps(owner)
+    )
+    const id = withOne.items[0]!.id
+
+    await expect(
+      reorderTripItems({ tripId: trip.id, itemIds: [id] }, deps(other))
+    ).rejects.toThrow(NotFoundError)
   })
 })

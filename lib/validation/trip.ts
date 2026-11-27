@@ -42,3 +42,16 @@ export const addTripItemSchema = z.strictObject({
 })
 
 export const removeTripItemSchema = z.strictObject({ itemId: id })
+
+export const reorderTripSchema = z
+  .strictObject({
+    tripId: id,
+    itemIds: z
+      .array(id)
+      .min(1, "Nothing to reorder")
+      .max(200, "Too many items to reorder at once"),
+  })
+  .refine((value) => new Set(value.itemIds).size === value.itemIds.length, {
+    message: "Each item may appear once",
+    path: ["itemIds"],
+  })

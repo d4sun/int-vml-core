@@ -2,13 +2,14 @@ import type { PrismaClient } from "@prisma/client"
 import { toNormalizedError } from "@/lib/actions/result"
 import { requireUser, type SessionSource } from "@/lib/auth/guards"
 import { publiclyVisibleListingWhere } from "@/lib/catalog/visibility"
-import { NotFoundError } from "@/lib/errors"
+import { ConflictError, NotFoundError } from "@/lib/errors"
 import {
   addTripItemSchema,
   createTripSchema,
   deleteTripSchema,
   removeTripItemSchema,
   renameTripSchema,
+  reorderTripSchema,
 } from "@/lib/validation/trip"
 
 export type TripItemRecord = {
@@ -261,6 +262,66 @@ export async function removeTripItem(
 
     const row = await tx.trip.findUniqueOrThrow({
       where: { id: item.tripId },
+      select: SELECT_TRIP,
+    })
+
+    return toRecord(row)
+  })
+}
+
+/**
+ * Puts a trip's items in the order given. `itemIds` must name every item of the
+ * trip exactly once: a missing, extra or repeated id is refused and nothing
+ * moves. The trip row is locked first, so two reorders cannot interleave, and
+ * the positions are rewritten as 0..n-1 in one transaction, so there are never
+ * gaps or duplicates.
+ */
+export async function reorderTripItems(
+  input: unknown,
+  deps: TripDeps = {}
+): Promise<TripRecord> {
+  const user = await requireUser(deps.session)
+  const parsed = reorderTripSchema.safeParse(input)
+
+  if (!parsed.success) throw toNormalizedError(parsed.error)
+
+  const db = await resolveDb(deps)
+  const { tripId, itemIds } = parsed.data
+
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Trip" WHERE "id" = ${tripId} AND "touristUserId" = ${user.id} FOR UPDATE`
+
+    const owned = await tx.trip.findFirst({
+      where: { id: tripId, touristUserId: user.id },
+      select: { id: true },
+    })
+
+    if (!owned) throw new NotFoundError("That trip was not found")
+
+    const items = await tx.tripItem.findMany({
+      where: { tripId },
+      select: { id: true },
+    })
+    const current = new Set(items.map((item) => item.id))
+
+    const complete =
+      itemIds.length === current.size && itemIds.every((id) => current.has(id))
+
+    if (!complete) {
+      throw new ConflictError(
+        "The trip changed while you were reordering it. Refresh and try again.",
+        {
+          details: { reason: "STALE_ORDER" },
+        }
+      )
+    }
+
+    for (const [position, id] of itemIds.entries()) {
+      await tx.tripItem.update({ where: { id }, data: { position } })
+    }
+
+    const row = await tx.trip.findUniqueOrThrow({
+      where: { id: tripId },
       select: SELECT_TRIP,
     })
 
