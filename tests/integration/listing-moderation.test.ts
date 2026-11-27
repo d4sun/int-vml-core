@@ -11,6 +11,10 @@ import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors"
 import { submitListing } from "@/lib/services/listing"
 import { moderateListing } from "@/lib/services/listing-moderation"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
+import {
+  RecordingTransactionalQueue,
+  TEST_APP_URL,
+} from "../helpers/recording-transactional-queue"
 import { makeHarness, type AuthHarness } from "../helpers/auth-harness"
 
 let prisma: PrismaClient
@@ -85,6 +89,8 @@ const statusOf = async (id: string) =>
 const deps = (session: Awaited<ReturnType<typeof account>>["session"]) => ({
   session,
   db: prisma,
+  emailQueue: new RecordingTransactionalQueue(),
+  appUrl: TEST_APP_URL,
 })
 
 /** The refusal's reason, or null when the call succeeds. */

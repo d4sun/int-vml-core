@@ -21,6 +21,17 @@ export default async function AdminHomePage() {
         </li>
         <li>
           <Link
+            href="/admin/listings"
+            className="block rounded-2xl border border-border bg-card p-5 hover:shadow-md"
+          >
+            <span className="text-lg font-bold text-vml-ink">Listings</span>
+            <span className="mt-1 block text-sm text-muted-foreground">
+              Approve or reject listings waiting for review.
+            </span>
+          </Link>
+        </li>
+        <li>
+          <Link
             href="/admin/categories"
             className="block rounded-2xl border border-border bg-card p-5 hover:shadow-md"
           >

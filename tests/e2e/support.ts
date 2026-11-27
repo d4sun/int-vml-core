@@ -26,6 +26,8 @@ export type EmailKind =
   | "vendor-suspended"
   | "vendor-reinstated"
   | "vendor-application"
+  | "listing-approved"
+  | "listing-rejected"
 
 type OutboxMessage = {
   to: string
