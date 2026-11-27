@@ -34,6 +34,8 @@ export type AdminVendorDetail = {
   status: VendorStatus
   contactEmail: string | null
   stripeOnboardingComplete: boolean
+  /** The vendor's own commission in basis points, or null to use each category's default. */
+  commissionBpsOverride: number | null
   approvedByAdminId: string | null
   createdAt: Date
   members: Array<{ role: "OWNER" | "STAFF"; name: string; email: string }>
@@ -140,6 +142,7 @@ export async function getVendorForAdmin(
       status: true,
       contactEmail: true,
       stripeOnboardingComplete: true,
+      commissionBpsOverride: true,
       approvedByAdminId: true,
       createdAt: true,
       members: {
@@ -173,6 +176,7 @@ export async function getVendorForAdmin(
     status: vendor.status,
     contactEmail: vendor.contactEmail,
     stripeOnboardingComplete: vendor.stripeOnboardingComplete,
+    commissionBpsOverride: vendor.commissionBpsOverride,
     approvedByAdminId: vendor.approvedByAdminId,
     createdAt: vendor.createdAt,
     members: vendor.members.map((m) => ({
