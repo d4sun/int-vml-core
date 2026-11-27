@@ -106,7 +106,7 @@ Primitives added: `ui/badge.tsx` (incl. `eyebrow`, `green`, `tag`, `navy`, `red`
 ## 6. What's intentionally deferred
 
 This pass is **UI only, mock data**. Not yet done, by design:
-- Real data (everything reads from `lib/mock-data.ts`).
+- Real data (listings come from Prisma; navigation and category copy from `lib/site/`).
 - Live search, live map (static placeholder), working filters/sort/pagination.
 - Auth-gated surfaces, vendor/admin chrome.
 - Dark-mode polish (tokens exist and resolve, but the marketing screens were designed light-first and haven't been dark-reviewed).
@@ -116,4 +116,4 @@ This pass is **UI only, mock data**. Not yet done, by design:
 
 ## 7. Extending the system
 
-When adding a new category page, add a `CategoryConfig` entry to `lib/mock-data.ts` — the `[category]` route renders it automatically. When adding a new brand component, keep it in `components/brand/`, build on `@base-ui/react` + the `vml-*` tokens, and register it in the table above. Never hard-code hex values in a component; add a token to `globals.css` and reference it so light/dark and future rebrands stay single-sourced.
+When adding a new category page, add a `CategoryConfig` entry to `lib/site/categories.ts` — the `[category]` route renders it automatically, with its listings read from the database. When adding a new brand component, keep it in `components/brand/`, build on `@base-ui/react` + the `vml-*` tokens, and register it in the table above. Never hard-code hex values in a component; add a token to `globals.css` and reference it so light/dark and future rebrands stay single-sourced.

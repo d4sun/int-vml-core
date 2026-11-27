@@ -1,5 +1,5 @@
 import { Play, ChevronLeft, ChevronRight } from "lucide-react"
-import { LONDON_VIDEOS } from "@/lib/mock-data"
+import { LONDON_VIDEOS } from "@/lib/site/media"
 
 /** Magenta "Discover more with London videos" band with a horizontal video rail. */
 export function VideoBand() {

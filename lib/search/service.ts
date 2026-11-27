@@ -17,6 +17,8 @@ export type SearchResult = {
   vendorName: string
   /** The cheapest active product, in pence; null when there is none in range. */
   fromPrice: number | null
+  /** Storage key of the first picture, or null when there is none. */
+  imageKey: string | null
 }
 
 export type SearchPage = {
@@ -78,6 +80,11 @@ export async function searchListings(
         orderBy: { basePrice: "asc" },
         take: 1,
       },
+      images: {
+        select: { key: true },
+        orderBy: { position: "asc" },
+        take: 1,
+      },
     },
   })
 
@@ -93,6 +100,7 @@ export async function searchListings(
       categoryName: row.category.name,
       vendorName: row.vendor.name,
       fromPrice: row.products[0]?.basePrice ?? null,
+      imageKey: row.images[0]?.key ?? null,
     }))
 
   return {

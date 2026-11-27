@@ -105,3 +105,51 @@ export async function vendorPayoutState(vendorId: string) {
 
   return vendor
 }
+
+/**
+ * A listing in the given status, with a slug the public pages can be reached
+ * by. Returns both, so a spec can check visibility by URL and by id.
+ */
+export async function createListingWithStatus(
+  vendorId: string,
+  title: string,
+  status: "PUBLISHED" | "DRAFT"
+): Promise<{ id: string; slug: string }> {
+  const suffix = randomUUID().slice(0, 8)
+  const category = await db().category.create({
+    data: {
+      name: `E2E Public ${suffix}`,
+      slug: `e2e-public-${suffix}`,
+      type: "TIMED_SLOT",
+    },
+  })
+  const listing = await db().listing.create({
+    data: {
+      vendorId,
+      categoryId: category.id,
+      title,
+      slug: `e2e-public-listing-${suffix}`,
+      description: "Visible on the public pages.",
+      status,
+      lat: 51.5033,
+      lng: -0.1195,
+      products: {
+        create: {
+          name: "Morning walk",
+          basePrice: 1500,
+          policy: { cancelWindowHours: 24, bookingCutoffHours: 2 },
+        },
+      },
+    },
+  })
+
+  return { id: listing.id, slug: listing.slug }
+}
+
+/** Marks a vendor's payout setup complete, as the account.updated webhook would. */
+export async function setVendorOnboarded(vendorId: string): Promise<void> {
+  await db().vendor.update({
+    where: { id: vendorId },
+    data: { stripeOnboardingComplete: true },
+  })
+}

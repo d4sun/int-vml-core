@@ -89,8 +89,9 @@ test("E2E-S9-02: a category with listings cannot be deleted, and a move into its
 
   await asAdmin(page)
 
-  // The seeded Tours category has the seeded listing.
-  await expect(row(page, "tours")).toContainText("1 listing")
+  // The seeded Tours category has at least one listing. (Other specs add
+  // listings to it, so the exact count depends on what ran before.)
+  await expect(row(page, "tours")).toContainText(/[1-9]\d* listings?/)
   await page.getByRole("link", { name: "Edit Tours" }).click()
   await page
     .getByTestId("category-edit")

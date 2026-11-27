@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { cn } from "cn"
-import { CATEGORY_PILLS } from "@/lib/mock-data"
+import { CATEGORY_PILLS } from "@/lib/site/navigation"
 
 /** The wrap-around row of category pills shown under the hero on listing pages. */
 export function CategoryPills({ activeHref }: { activeHref?: string }) {
