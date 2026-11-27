@@ -14,7 +14,7 @@ describe("hold expiry job", () => {
     }
     const expiresAt = new Date("2030-06-01T10:10:00Z")
 
-    const id = await scheduleHoldExpiry(boss, { id: "h1", expiresAt })
+    const id = await scheduleHoldExpiry(boss as never, { id: "h1", expiresAt })
 
     expect(id).toBe("job-1")
     expect(sent).toEqual([
