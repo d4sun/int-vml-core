@@ -1,0 +1,63 @@
+# Local services for development and integration tests.
+#
+#   docker compose up -d --build
+#
+# Ports are bound to 127.0.0.1 only. The defaults below are for this machine
+# alone: override them in a local .env file (never commit real values), and
+# do not reuse them anywhere else.
+name: vml-local
+
+services:
+  postgres:
+    build: ./docker/postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vml}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vml_local_password}
+      POSTGRES_DB: vml_dev
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d vml_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  garage:
+    build: ./docker/garage
+    restart: unless-stopped
+    environment:
+      # 64 hex characters each. Local only.
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-1f0c2b7e9a4d6c835e1b7a0f92d4c6e8b3a5d7f1c9e2b4a6d8f0c2e4a6b8d0f2}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-local-admin-token-change-me}
+    ports:
+      - "127.0.0.1:3900:3900"
+    volumes:
+      - garage-meta:/var/lib/garage
+
+  # Runs once after garage is up: layout, bucket, app key and CORS. It exits
+  # with 0 when everything is in place and is safe to run again.
+  garage-init:
+    build: ./docker/garage/init
+    depends_on:
+      garage:
+        condition: service_started
+    restart: "no"
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-1f0c2b7e9a4d6c835e1b7a0f92d4c6e8b3a5d7f1c9e2b4a6d8f0c2e4a6b8d0f2}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-GK0123456789abcdef01234567}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-7a3c9e1f5b2d8a4c6e0f3b7d9a1c5e8f2b4d6a0c3e7f9b1d5a8c2e4f6b0d3a7c}
+      S3_BUCKET: ${S3_BUCKET:-vml-images}
+      S3_REGION: garage
+      S3_ENDPOINT: http://garage:3900
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      - garage-meta:/var/lib/garage
+      - ./docker/garage/garage.toml:/etc/garage.toml:ro
+
+volumes:
+  postgres-data:
+  garage-meta:
