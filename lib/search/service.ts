@@ -7,6 +7,7 @@ import {
 } from "@/lib/validation/search"
 import { ValidationError } from "@/lib/errors"
 import { londonDayBounds } from "@/lib/time/london"
+import { boxCentre, EARTH_RADIUS_KM, type LatLng } from "@/lib/search/geo"
 
 export type SearchResult = {
   id: string
@@ -167,6 +168,26 @@ async function candidateIds(
     )
   }
 
+  const box =
+    query.south !== undefined &&
+    query.north !== undefined &&
+    query.west !== undefined &&
+    query.east !== undefined
+      ? {
+          south: query.south,
+          north: query.north,
+          west: query.west,
+          east: query.east,
+        }
+      : undefined
+
+  if (box) {
+    // A listing without a location cannot be on a map, so it is left out.
+    conditions.push(
+      Prisma.sql`l."lat" BETWEEN ${box.south} AND ${box.north} AND l."lng" BETWEEN ${box.west} AND ${box.east}`
+    )
+  }
+
   const where = Prisma.join(conditions, " AND ")
   const from = Prisma.sql`FROM "Listing" l
     JOIN "Vendor" v ON v."id" = l."vendorId"
@@ -174,7 +195,9 @@ async function candidateIds(
 
   const order = query.q
     ? Prisma.sql`ts_rank(l."search", websearch_to_tsquery('english', ${query.q})) DESC, l."title" ASC, l."id" ASC`
-    : Prisma.sql`l."title" ASC, l."id" ASC`
+    : box
+      ? Prisma.sql`${distanceSql(boxCentre(box))} ASC, l."id" ASC`
+      : Prisma.sql`l."title" ASC, l."id" ASC`
 
   const offset = (query.page - 1) * SEARCH_PAGE_SIZE
 
@@ -208,4 +231,13 @@ function flatten(error: {
   }
 
   return fieldErrors
+}
+
+/** The haversine distance in SQL, the same formula as `haversineKm`. */
+function distanceSql(centre: LatLng): Prisma.Sql {
+  return Prisma.sql`(${EARTH_RADIUS_KM} * 2 * asin(sqrt(
+    power(sin(radians((l."lat" - ${centre.lat}) / 2)), 2) +
+    cos(radians(${centre.lat})) * cos(radians(l."lat")) *
+    power(sin(radians((l."lng" - ${centre.lng}) / 2)), 2)
+  )))`
 }

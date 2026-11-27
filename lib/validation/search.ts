@@ -7,6 +7,8 @@ export const SEARCH_QUERY_MAX_LENGTH = 100
 export const SEARCH_MAX_PENCE = 1_000_000
 
 const pence = z.number().int().min(0).max(SEARCH_MAX_PENCE)
+const lat = z.number().min(-90).max(90)
+const lng = z.number().min(-180).max(180)
 
 /**
  * Search input. Blank text and blank category mean "no filter". A minimum
@@ -41,6 +43,11 @@ export const searchQuerySchema = z
     minPrice: pence.optional(),
     maxPrice: pence.optional(),
     page: z.number().int().min(1).max(SEARCH_MAX_PAGE).default(1),
+    /** The map viewport, as corners. All four or none. */
+    south: lat.optional(),
+    north: lat.optional(),
+    west: lng.optional(),
+    east: lng.optional(),
   })
   .refine(
     (value) =>
@@ -51,6 +58,23 @@ export const searchQuerySchema = z
       message: "The minimum price cannot be more than the maximum",
       path: ["maxPrice"],
     }
+  )
+  .refine(
+    (value) => {
+      const given = [value.south, value.north, value.west, value.east].filter(
+        (corner) => corner !== undefined
+      ).length
+
+      return given === 0 || given === 4
+    },
+    { message: "A map area needs all four edges", path: ["south"] }
+  )
+  .refine(
+    (value) =>
+      value.south === undefined ||
+      value.north === undefined ||
+      value.south <= value.north,
+    { message: "The south edge must be below the north edge", path: ["north"] }
   )
 
 /** A YYYY-MM-DD string that names a real calendar day (no 31 February). */
