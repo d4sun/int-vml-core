@@ -52,6 +52,35 @@ pnpm dev
 
 The app runs at <http://localhost:3000>.
 
+### Local services (Postgres and image store)
+
+`compose.yaml` runs Postgres 17 (Alpine) and Garage, a small S3-compatible
+store for listing pictures, on `127.0.0.1` only.
+
+```bash
+docker compose up -d --build     # first start builds the images and sets up the bucket
+docker compose logs garage-init  # shows "ready" when setup has finished
+```
+
+Use these values in `.env` (the development database is `vml_dev`; the test
+database `vml_test` is created on first start):
+
+```bash
+DATABASE_URL="postgresql://vml:vml_local_password@localhost:5432/vml_dev"
+DIRECT_URL="postgresql://vml:vml_local_password@localhost:5432/vml_dev"
+TEST_DATABASE_URL="postgresql://vml:vml_local_password@localhost:5432/vml_test?sslmode=disable"
+S3_ENDPOINT="http://localhost:3900"
+S3_BUCKET="vml-images"
+S3_REGION="garage"
+S3_ACCESS_KEY_ID="GK0123456789abcdef01234567"
+S3_SECRET_ACCESS_KEY="7a3c9e1f5b2d8a4c6e0f3b7d9a1c5e8f2b4d6a0c3e7f9b1d5a8c2e4f6b0d3a7c"
+S3_PUBLIC_BASE_URL="http://localhost:3900/vml-images"
+```
+
+The compose file ships local-only defaults for passwords and keys. Change
+them in a local `.env` used by compose, and never reuse them elsewhere.
+`docker compose down` keeps the data; `docker compose down -v` deletes it.
+
 ### Prisma workflow
 
 This repo uses **classic Prisma 6** with a checked-in schema and migrations:
