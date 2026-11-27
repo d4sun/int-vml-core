@@ -56,3 +56,32 @@ describe("searchQuerySchema", () => {
     )
   })
 })
+
+import { isRealDate } from "@/lib/validation/search"
+import { londonDayBounds } from "@/lib/time/london"
+
+describe("date filter", () => {
+  it("accepts a real YYYY-MM-DD date and refuses anything else", () => {
+    expect(isRealDate("2026-07-01")).toBe(true)
+    expect(isRealDate("2026-02-31")).toBe(false)
+    expect(isRealDate("2026-1-5")).toBe(false)
+    expect(searchQuerySchema.safeParse({ date: "2026-02-30" }).success).toBe(
+      false
+    )
+    expect(searchQuerySchema.parse({ date: "" }).date).toBeUndefined()
+  })
+
+  it("maps a summer London day (BST) to the UTC hours before and after it", () => {
+    const bounds = londonDayBounds({ year: 2026, month: 7, day: 1 })
+
+    expect(bounds.from.toISOString()).toBe("2026-06-30T23:00:00.000Z")
+    expect(bounds.to.toISOString()).toBe("2026-07-01T23:00:00.000Z")
+  })
+
+  it("maps a winter London day (GMT) to UTC midnight", () => {
+    const bounds = londonDayBounds({ year: 2026, month: 1, day: 15 })
+
+    expect(bounds.from.toISOString()).toBe("2026-01-15T00:00:00.000Z")
+    expect(bounds.to.toISOString()).toBe("2026-01-16T00:00:00.000Z")
+  })
+})

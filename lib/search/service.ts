@@ -6,6 +6,7 @@ import {
   type SearchQuery,
 } from "@/lib/validation/search"
 import { ValidationError } from "@/lib/errors"
+import { londonDayBounds } from "@/lib/time/london"
 
 export type SearchResult = {
   id: string
@@ -136,6 +137,33 @@ async function candidateIds(
 
     conditions.push(
       Prisma.sql`EXISTS (SELECT 1 FROM "Product" p WHERE ${Prisma.join(range, " AND ")})`
+    )
+  }
+
+  if (query.date) {
+    const [year, month, day] = query.date.split("-").map(Number) as [
+      number,
+      number,
+      number,
+    ]
+    const { from, to } = londonDayBounds({ year, month, day })
+
+    // A slot counts only if it is open (not closed, capacity left) and starts
+    // after its product's booking cutoff, measured from now in UTC (CR-6).
+    conditions.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM "Product" p
+        JOIN "Availability" a ON a."productId" = p."id"
+        WHERE p."listingId" = l."id"
+          AND p."active" = true
+          AND a."closed" = false
+          AND a."remaining" > 0
+          AND a."startAt" >= ${from}
+          AND a."startAt" < ${to}
+          AND a."startAt" > now() + make_interval(
+            hours => COALESCE((p."policy"->>'bookingCutoffHours')::int, 0)
+          )
+      )`
     )
   }
 

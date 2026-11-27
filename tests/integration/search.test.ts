@@ -1,6 +1,7 @@
 import type { PrismaClient, VendorStatus } from "@prisma/client"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { searchListings } from "@/lib/search/service"
+import { londonParts } from "@/lib/time/london"
 import { SEARCH_PAGE_SIZE } from "@/lib/validation/search"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
 
@@ -175,6 +176,96 @@ describe("public search (Postgres)", () => {
   it("rejects an invalid price range before querying", async () => {
     await expect(
       searchListings({ minPrice: 5000, maxPrice: 1000 }, { db: prisma })
+    ).rejects.toThrow()
+  })
+})
+
+type Slot = { startAt: Date; remaining?: number; closed?: boolean }
+
+/** A published listing with one product whose slots are set up as given. */
+async function datedListing(title: string, cutoffHours: number, slots: Slot[]) {
+  n += 1
+  const v = await vendor("APPROVED")
+
+  return prisma.listing.create({
+    data: {
+      vendorId: v.id,
+      categoryId: tours,
+      title,
+      slug: `dated-${n}`,
+      status: "PUBLISHED",
+      products: {
+        create: {
+          name: "Dated slot",
+          basePrice: 1000,
+          policy: { cancelWindowHours: 24, bookingCutoffHours: cutoffHours },
+          availability: {
+            create: slots.map((slot) => ({
+              startAt: slot.startAt,
+              endAt: new Date(slot.startAt.getTime() + 60 * 60 * 1000),
+              capacity: 10,
+              remaining: slot.remaining ?? 10,
+              closed: slot.closed ?? false,
+            })),
+          },
+        },
+      },
+    },
+  })
+}
+
+/** The London calendar date (YYYY-MM-DD) a moment falls on. */
+function londonDate(at: Date): string {
+  const p = londonParts(at)
+
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`
+}
+
+const HOUR = 60 * 60 * 1000
+
+describe("availability-aware date filter (Postgres)", () => {
+  it("TC-E1S1-03: a slot inside the booking cutoff is not returned for its date", async () => {
+    const soon = new Date(Date.now() + 1 * HOUR) // cutoff is 2 hours
+
+    await datedListing("Too soon", 2, [{ startAt: soon }])
+
+    expect(await titles({ date: londonDate(soon) })).toEqual([])
+  })
+
+  it("a slot past the cutoff is returned for its date", async () => {
+    const later = new Date(Date.now() + 5 * HOUR)
+
+    await datedListing("Bookable later", 2, [{ startAt: later }])
+
+    expect(await titles({ date: londonDate(later) })).toEqual([
+      "Bookable later",
+    ])
+  })
+
+  it("a sold-out or closed slot does not count", async () => {
+    const later = new Date(Date.now() + 5 * HOUR)
+
+    await datedListing("Sold out", 2, [{ startAt: later, remaining: 0 }])
+    await datedListing("Closed", 2, [{ startAt: later, closed: true }])
+
+    expect(await titles({ date: londonDate(later) })).toEqual([])
+  })
+
+  it("a date with no slots returns nothing, and no date returns everything", async () => {
+    const later = new Date(Date.now() + 5 * HOUR)
+
+    await datedListing("Dated", 2, [{ startAt: later }])
+    await listing({ title: "Undated" })
+
+    expect(await titles({ date: "2031-03-01" })).toEqual([])
+    expect(await titles({})).toEqual(
+      expect.arrayContaining(["Dated", "Undated"])
+    )
+  })
+
+  it("rejects a date that is not real", async () => {
+    await expect(
+      searchListings({ date: "2026-02-31" }, { db: prisma })
     ).rejects.toThrow()
   })
 })
