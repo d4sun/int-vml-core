@@ -1,0 +1,183 @@
+import { Prisma, type PrismaClient } from "@prisma/client"
+import { publiclyVisibleListingWhere } from "@/lib/catalog/visibility"
+import {
+  searchQuerySchema,
+  SEARCH_PAGE_SIZE,
+  type SearchQuery,
+} from "@/lib/validation/search"
+import { ValidationError } from "@/lib/errors"
+
+export type SearchResult = {
+  id: string
+  title: string
+  slug: string
+  categoryName: string
+  vendorName: string
+  /** The cheapest active product, in pence; null when there is none in range. */
+  fromPrice: number | null
+}
+
+export type SearchPage = {
+  listings: SearchResult[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export type SearchDeps = {
+  db?: Pick<PrismaClient, "listing" | "$queryRaw">
+}
+
+/**
+ * The public search. Every condition is combined with AND, so a filter can only
+ * narrow the result, never widen it. Visibility is the single definition in
+ * `publiclyVisibleListingWhere`: the candidate ids are found in SQL with the
+ * same conditions, and the rows are then loaded through that Prisma `where`
+ * before anything is returned, so a listing that is not public never leaves here.
+ *
+ * Text is matched against the generated `search` column (title weighted above
+ * description) and ranked by relevance; with no text, newest title order.
+ */
+export async function searchListings(
+  input: unknown,
+  deps: SearchDeps = {}
+): Promise<SearchPage> {
+  const parsed = searchQuerySchema.safeParse(input)
+
+  if (!parsed.success) {
+    throw new ValidationError("Check the search filters", flatten(parsed.error))
+  }
+
+  const query = parsed.data
+  const db = deps.db ?? (await import("@/lib/prisma")).prisma
+
+  const candidates = await candidateIds(db, query)
+
+  if (candidates.ids.length === 0) {
+    return {
+      listings: [],
+      total: candidates.total,
+      page: query.page,
+      pageSize: SEARCH_PAGE_SIZE,
+    }
+  }
+
+  const rows = await db.listing.findMany({
+    where: publiclyVisibleListingWhere({ id: { in: candidates.ids } }),
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      category: { select: { name: true } },
+      vendor: { select: { name: true } },
+      products: {
+        where: { active: true },
+        select: { basePrice: true },
+        orderBy: { basePrice: "asc" },
+        take: 1,
+      },
+    },
+  })
+
+  const byId = new Map(rows.map((row) => [row.id, row]))
+
+  const listings = candidates.ids
+    .map((id) => byId.get(id))
+    .filter((row): row is NonNullable<typeof row> => row !== undefined)
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+      categoryName: row.category.name,
+      vendorName: row.vendor.name,
+      fromPrice: row.products[0]?.basePrice ?? null,
+    }))
+
+  return {
+    listings,
+    total: candidates.total,
+    page: query.page,
+    pageSize: SEARCH_PAGE_SIZE,
+  }
+}
+
+async function candidateIds(
+  db: Pick<PrismaClient, "$queryRaw">,
+  query: SearchQuery
+): Promise<{ ids: string[]; total: number }> {
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`l."status" = 'PUBLISHED'`,
+    Prisma.sql`v."status" = 'APPROVED'`,
+  ]
+
+  if (query.q) {
+    conditions.push(
+      Prisma.sql`l."search" @@ websearch_to_tsquery('english', ${query.q})`
+    )
+  }
+
+  if (query.category) {
+    conditions.push(Prisma.sql`c."slug" = ${query.category}`)
+  }
+
+  if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+    const range: Prisma.Sql[] = [
+      Prisma.sql`p."listingId" = l."id"`,
+      Prisma.sql`p."active" = true`,
+    ]
+
+    if (query.minPrice !== undefined) {
+      range.push(Prisma.sql`p."basePrice" >= ${query.minPrice}`)
+    }
+
+    if (query.maxPrice !== undefined) {
+      range.push(Prisma.sql`p."basePrice" <= ${query.maxPrice}`)
+    }
+
+    conditions.push(
+      Prisma.sql`EXISTS (SELECT 1 FROM "Product" p WHERE ${Prisma.join(range, " AND ")})`
+    )
+  }
+
+  const where = Prisma.join(conditions, " AND ")
+  const from = Prisma.sql`FROM "Listing" l
+    JOIN "Vendor" v ON v."id" = l."vendorId"
+    JOIN "Category" c ON c."id" = l."categoryId"`
+
+  const order = query.q
+    ? Prisma.sql`ts_rank(l."search", websearch_to_tsquery('english', ${query.q})) DESC, l."title" ASC, l."id" ASC`
+    : Prisma.sql`l."title" ASC, l."id" ASC`
+
+  const offset = (query.page - 1) * SEARCH_PAGE_SIZE
+
+  const [rows, counted] = await Promise.all([
+    db.$queryRaw<{ id: string }[]>`
+      SELECT l."id" ${from}
+      WHERE ${where}
+      ORDER BY ${order}
+      LIMIT ${SEARCH_PAGE_SIZE} OFFSET ${offset}
+    `,
+    db.$queryRaw<{ total: bigint }[]>`
+      SELECT COUNT(*) AS total ${from}
+      WHERE ${where}
+    `,
+  ])
+
+  return {
+    ids: rows.map((row) => row.id),
+    total: Number(counted[0]?.total ?? 0),
+  }
+}
+
+function flatten(error: {
+  issues: { path: PropertyKey[]; message: string }[]
+}) {
+  const fieldErrors: Record<string, string[]> = {}
+
+  for (const issue of error.issues) {
+    const key = String(issue.path[0] ?? "form")
+    ;(fieldErrors[key] ??= []).push(issue.message)
+  }
+
+  return fieldErrors
+}
