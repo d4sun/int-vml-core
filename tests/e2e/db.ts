@@ -106,6 +106,53 @@ export async function vendorPayoutState(vendorId: string) {
   return vendor
 }
 
+/** Marks a vendor's payout setup complete, as the account.updated webhook would. */
+export async function setVendorOnboarded(vendorId: string): Promise<void> {
+  await db().vendor.update({
+    where: { id: vendorId },
+    data: { stripeOnboardingComplete: true },
+  })
+}
+
+/**
+ * A listing waiting for an admin decision, in a category of its own so the
+ * queue can be found by its title. Returns the listing's id.
+ */
+export async function createPendingListing(
+  vendorId: string,
+  title: string
+): Promise<string> {
+  const suffix = randomUUID().slice(0, 8)
+  const category = await db().category.create({
+    data: {
+      name: `E2E Cat ${suffix}`,
+      slug: `e2e-cat-${suffix}`,
+      type: "TIMED_SLOT",
+    },
+  })
+  const listing = await db().listing.create({
+    data: {
+      vendorId,
+      categoryId: category.id,
+      title,
+      slug: `e2e-listing-${suffix}`,
+      description: "A walk for the e2e suite.",
+      status: "PENDING_REVIEW",
+    },
+  })
+
+  return listing.id
+}
+
+export async function listingStatus(listingId: string): Promise<string> {
+  const listing = await db().listing.findUniqueOrThrow({
+    where: { id: listingId },
+    select: { status: true },
+  })
+
+  return listing.status
+}
+
 /**
  * A listing in the given status, with a slug the public pages can be reached
  * by. Returns both, so a spec can check visibility by URL and by id.
@@ -144,12 +191,4 @@ export async function createListingWithStatus(
   })
 
   return { id: listing.id, slug: listing.slug }
-}
-
-/** Marks a vendor's payout setup complete, as the account.updated webhook would. */
-export async function setVendorOnboarded(vendorId: string): Promise<void> {
-  await db().vendor.update({
-    where: { id: vendorId },
-    data: { stripeOnboardingComplete: true },
-  })
 }

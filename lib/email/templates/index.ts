@@ -22,3 +22,8 @@ export {
   vendorApplicationReceivedEmail,
 } from "./vendor-application"
 export type { VendorApplicationEmailInput } from "./vendor-application"
+export {
+  listingApprovedEmail,
+  listingRejectedEmail,
+} from "./listing-moderation"
+export type { ListingModerationEmailInput } from "./listing-moderation"
