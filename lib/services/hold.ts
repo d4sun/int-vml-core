@@ -111,6 +111,8 @@ export async function placeHold(
         userId: user.id,
         quantity,
         expiresAt,
+        // One clock for the whole hold, so its window and its count agree.
+        createdAt: now,
       },
       select: { id: true },
     })
