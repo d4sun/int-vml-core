@@ -3,6 +3,7 @@ import type { QueueOptions } from "pg-boss"
 
 export const QUEUES = {
   emailSend: "email.send",
+  holdExpire: "hold.expire",
 } as const
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]
@@ -31,6 +32,14 @@ export const QUEUE_OPTIONS: Record<QueueName, QueueOptions> = {
     retryDelay: 60,
     retryBackoff: true,
     expireInSeconds: 300,
+    deleteAfterSeconds: 86_400,
+  },
+  // Releasing a hold is cheap and idempotent, so a few quick retries are enough.
+  [QUEUES.holdExpire]: {
+    retryLimit: 3,
+    retryDelay: 10,
+    retryBackoff: true,
+    expireInSeconds: 120,
     deleteAfterSeconds: 86_400,
   },
 }
