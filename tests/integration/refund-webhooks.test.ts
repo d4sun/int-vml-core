@@ -2,13 +2,18 @@ import type { PrismaClient } from "@prisma/client"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { FakeStripe } from "@/lib/stripe/fake"
 import { handleStripeWebhook } from "@/lib/webhooks/stripe"
-import { handleRefundUpdated } from "@/lib/webhooks/refund-updated"
+import { refundUpdatedHandler } from "@/lib/webhooks/refund-updated"
+import {
+  RecordingTransactionalQueue,
+  TEST_APP_URL,
+} from "../helpers/recording-transactional-queue"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
 
 let prisma: PrismaClient
 let stripe: FakeStripe
 let n = 0
 let eventNo = 0
+let emails = new RecordingTransactionalQueue()
 
 beforeAll(() => {
   prisma = createTestPrismaClient()
@@ -19,6 +24,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncatePublicSchema(prisma)
   stripe = new FakeStripe()
+  emails = new RecordingTransactionalQueue()
 })
 
 /** A confirmed booking with the given item subtotals (pence), and one pending refund on the first item. */
@@ -129,7 +135,12 @@ const send = (ev: { rawBody: string; signature: string }) =>
   handleStripeWebhook(ev.rawBody, ev.signature, {
     stripe,
     db: prisma,
-    handlers: { "refund.updated": handleRefundUpdated },
+    handlers: {
+      "refund.updated": refundUpdatedHandler({
+        emailQueue: emails,
+        appUrl: TEST_APP_URL,
+      }),
+    },
     logger: { error() {} },
   })
 
@@ -307,5 +318,60 @@ describe("restocking refunded places (Postgres, fake Stripe)", () => {
     expect(result.status).toBe(500)
     expect((await refundRow(b.refundId)).status).toBe("pending")
     expect(await remainingOf(b.refundId)).toBe(5)
+  })
+})
+
+describe("refund emails (Postgres, fake Stripe)", () => {
+  /** Adds an owner to the refunded item's vendor, so the vendor email is sent. */
+  async function ownerOfItemVendor(refundId: string) {
+    const refund = await prisma.refund.findUniqueOrThrow({
+      where: { id: refundId },
+      select: { bookingItem: { select: { vendorId: true } } },
+    })
+    const owner = await prisma.user.create({
+      data: {
+        email: `owner-${refundId.slice(0, 8)}@example.com`,
+        name: "Owner",
+        emailVerified: true,
+        platformRole: "VENDOR",
+      },
+    })
+    await prisma.vendorMember.create({
+      data: {
+        vendorId: refund.bookingItem.vendorId,
+        userId: owner.id,
+        role: "OWNER",
+      },
+    })
+
+    return owner.email
+  }
+
+  it("a succeeded refund emails the visitor, and the vendor owner a reversal notice, once each", async () => {
+    const b = await bookingWithRefund([1000], 1000)
+    const ownerEmail = await ownerOfItemVendor(b.refundId)
+
+    await send(refundEvent(b, "succeeded", 1000, "evt_mail_1"))
+    await send(refundEvent(b, "succeeded", 1000, "evt_mail_2"))
+
+    const kinds = emails.messages.map((m) => [m.to, m.tags?.kind])
+    expect(kinds).toHaveLength(2)
+    expect(kinds).toEqual(
+      expect.arrayContaining([
+        ["w" + n + "@example.com", "refund-issued"],
+        [ownerEmail, "refund-reversal"],
+      ])
+    )
+    expect(
+      emails.messages.find((m) => m.tags?.kind === "refund-issued")?.subject
+    ).toMatch(/Refund for booking/)
+  })
+
+  it("a failed refund sends no refund email", async () => {
+    const b = await bookingWithRefund([1000], 1000)
+
+    await send(refundEvent(b, "failed", 1000))
+
+    expect(emails.messages).toHaveLength(0)
   })
 })
