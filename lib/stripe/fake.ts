@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto"
 import {
+  type CreatePaymentIntentInput,
+  type PaymentIntent,
   StripeAccountNotFoundError,
   StripeIdempotencyError,
   type AccountLink,
@@ -42,6 +44,7 @@ export class FakeStripe implements StripeAdapter {
   private readonly accounts = new Map<string, ConnectAccount>()
   private readonly accountKeys = new Map<string, Stored<ConnectAccount>>()
   private readonly linkKeys = new Map<string, Stored<AccountLink>>()
+  private readonly paymentKeys = new Map<string, Stored<PaymentIntent>>()
 
   /** Every call made through the interface, for assertions. */
   readonly calls: {
@@ -116,6 +119,28 @@ export class FakeStripe implements StripeAdapter {
     this.remember(this.linkKeys, options, input, link)
 
     return { ...link }
+  }
+
+  async createPaymentIntent(
+    input: CreatePaymentIntentInput,
+    options: RequestOptions = {}
+  ): Promise<PaymentIntent> {
+    this.calls.push({ method: "createPaymentIntent", input, options })
+
+    const replay = this.replay(this.paymentKeys, options, input)
+
+    if (replay) return { ...replay }
+
+    const intent: PaymentIntent = {
+      id: `pi_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+      clientSecret: null,
+      amount: input.amount,
+      status: "requires_payment_method",
+    }
+
+    this.remember(this.paymentKeys, options, input, intent)
+
+    return { ...intent }
   }
 
   constructWebhookEvent(

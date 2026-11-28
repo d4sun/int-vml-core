@@ -30,6 +30,31 @@ export type CreateConnectAccountInput = {
   email?: string
 }
 
+/**
+ * A card payment for a booking, in pence and GBP. Either a destination charge
+ * (single vendor): the vendor is paid the amount less `applicationFeeAmount`
+ * (the platform's commission); or a platform charge (several vendors): the
+ * money is held by the platform and split by transfers on confirmation.
+ */
+export type CreatePaymentIntentInput = {
+  amount: number
+  /** Our booking id, stored as metadata so a payment traces back to it. */
+  bookingId: string
+  /** Set for a destination charge only. */
+  destinationAccountId?: string
+  /** Set for a destination charge only: the platform's commission, in pence. */
+  applicationFeeAmount?: number
+  /** Set for a platform charge: groups the later transfers with this payment. */
+  transferGroup?: string
+}
+
+export type PaymentIntent = {
+  id: string
+  clientSecret: string | null
+  amount: number
+  status: string
+}
+
 export type CreateAccountLinkInput = {
   accountId: string
   /** Where Stripe sends the owner if the link expired or was already used. */
@@ -83,6 +108,15 @@ export interface StripeAdapter {
     rawBody: string,
     signatureHeader: string | null
   ): StripeWebhookEvent
+
+  /**
+   * Creates a payment for a booking. The same idempotency key always returns
+   * the first intent, so a repeated submit cannot charge twice (CR-4 / E2-S2-03).
+   */
+  createPaymentIntent(
+    input: CreatePaymentIntentInput,
+    options?: RequestOptions
+  ): Promise<PaymentIntent>
 }
 
 /** The webhook could not be verified. Callers answer 400 and do nothing else. */

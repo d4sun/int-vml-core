@@ -1,5 +1,7 @@
 import Stripe from "stripe"
 import {
+  type CreatePaymentIntentInput,
+  type PaymentIntent,
   StripeAccountNotFoundError,
   StripeIdempotencyError,
   StripeSignatureError,
@@ -50,6 +52,24 @@ export type StripeClientLike = {
       },
       options?: { idempotencyKey?: string }
     ): Promise<{ url: string; expires_at: number }>
+  }
+  paymentIntents: {
+    create(
+      params: {
+        amount: number
+        currency: string
+        metadata: Record<string, string>
+        transfer_data?: { destination: string }
+        application_fee_amount?: number
+        transfer_group?: string
+      },
+      options?: { idempotencyKey?: string }
+    ): Promise<{
+      id: string
+      client_secret: string | null
+      amount: number
+      status: string
+    }>
   }
   webhooks: {
     constructEvent(
@@ -169,6 +189,42 @@ export class RealStripe implements StripeAdapter {
         throw new StripeAccountNotFoundError(input.accountId)
       }
 
+      throw translate(error)
+    }
+  }
+
+  async createPaymentIntent(
+    input: CreatePaymentIntentInput,
+    options: RequestOptions = {}
+  ): Promise<PaymentIntent> {
+    try {
+      const intent = await this.client.paymentIntents.create(
+        {
+          amount: input.amount,
+          currency: "gbp",
+          metadata: { bookingId: input.bookingId },
+          ...(input.destinationAccountId
+            ? { transfer_data: { destination: input.destinationAccountId } }
+            : {}),
+          ...(input.applicationFeeAmount !== undefined
+            ? { application_fee_amount: input.applicationFeeAmount }
+            : {}),
+          ...(input.transferGroup
+            ? { transfer_group: input.transferGroup }
+            : {}),
+        },
+        options.idempotencyKey
+          ? { idempotencyKey: options.idempotencyKey }
+          : undefined
+      )
+
+      return {
+        id: intent.id,
+        clientSecret: intent.client_secret,
+        amount: intent.amount,
+        status: intent.status,
+      }
+    } catch (error) {
       throw translate(error)
     }
   }
