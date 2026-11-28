@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto"
 import {
+  type CheckoutSession,
+  type CreateCheckoutSessionInput,
   type CreatePaymentIntentInput,
   type CreateTransferInput,
   type PaymentIntent,
@@ -126,6 +128,73 @@ export class FakeStripe implements StripeAdapter {
 
   /** Test control: transfers to these accounts fail, as a declined payout would. */
   failTransfersTo = new Set<string>()
+
+  /** Test controls: the checkout sessions this fake has created, by id. */
+  readonly checkoutSessions = new Map<
+    string,
+    {
+      bookingId: string
+      amount: number
+      paymentIntentId: string
+      successUrl: string
+      cancelUrl: string
+    }
+  >()
+  private readonly checkoutKeys = new Map<string, Stored<CheckoutSession>>()
+
+  async createCheckoutSession(
+    input: CreateCheckoutSessionInput,
+    options: RequestOptions = {}
+  ): Promise<CheckoutSession> {
+    this.calls.push({ method: "createCheckoutSession", input, options })
+
+    const replay = this.replay(this.checkoutKeys, options, input)
+
+    if (replay) return { ...replay }
+
+    const id = `cs_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`
+    const origin = new URL(input.successUrl).origin
+    const session: CheckoutSession = {
+      id,
+      // The fake's hosted page: a dev-only route of this app.
+      url: `${origin}/api/dev/stripe-fake/checkout?session=${id}`,
+    }
+
+    this.checkoutSessions.set(id, {
+      bookingId: input.bookingId,
+      amount: input.amount,
+      paymentIntentId: `pi_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+      successUrl: input.successUrl,
+      cancelUrl: input.cancelUrl,
+    })
+    this.remember(this.checkoutKeys, options, input, session)
+
+    return { ...session }
+  }
+
+  /** The signed `payment_intent.succeeded` event for a checkout session the visitor paid. */
+  paidEventFor(sessionId: string): {
+    rawBody: string
+    signature: string
+    event: StripeWebhookEvent
+  } {
+    const session = this.checkoutSessions.get(sessionId)
+
+    if (!session) throw new StripeAccountNotFoundError(sessionId)
+
+    return this.signedEvent({
+      id: `evt_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+      type: "payment_intent.succeeded",
+      created: Math.floor(this.now().getTime() / 1000),
+      data: {
+        object: {
+          id: session.paymentIntentId,
+          amount: session.amount,
+          metadata: { bookingId: session.bookingId },
+        },
+      },
+    })
+  }
 
   async createTransfer(
     input: CreateTransferInput,

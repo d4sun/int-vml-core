@@ -359,7 +359,11 @@ model BookingItem {
 model Payment {
   id                   String   @id @default(uuid())
   bookingId            String   @unique
-  stripePaymentIntentId String  @unique
+  // Set once Stripe has created the intent (on the webhook, for Checkout).
+  stripePaymentIntentId String?  @unique
+  // The Checkout session the visitor pays through, and its hosted page.
+  stripeCheckoutSessionId String? @unique
+  checkoutUrl          String?
   amount               Int      // pence
   currency             String   @default("GBP")
   status               String
