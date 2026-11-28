@@ -5,7 +5,11 @@ import {
   settleTransfer,
 } from "@/lib/services/transfers"
 import { FakeStripe } from "@/lib/stripe/fake"
-import { handlePaymentSucceeded } from "@/lib/webhooks/payment-succeeded"
+import { paymentSucceededHandler } from "@/lib/webhooks/payment-succeeded"
+import {
+  RecordingTransactionalQueue,
+  TEST_APP_URL,
+} from "../helpers/recording-transactional-queue"
 import { handleStripeWebhook } from "@/lib/webhooks/stripe"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
 
@@ -145,7 +149,12 @@ async function confirm(b: {
   return handleStripeWebhook(signed.rawBody, signed.signature, {
     stripe,
     db: prisma,
-    handlers: { "payment_intent.succeeded": handlePaymentSucceeded },
+    handlers: {
+      "payment_intent.succeeded": paymentSucceededHandler({
+        emailQueue: new RecordingTransactionalQueue(),
+        appUrl: TEST_APP_URL,
+      }),
+    },
     logger: { error() {} },
   })
 }
