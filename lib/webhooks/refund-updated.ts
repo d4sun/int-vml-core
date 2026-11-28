@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client"
 import { z } from "zod"
 import { audit } from "@/lib/services/audit"
+import { restockItem } from "@/lib/services/restock"
 import type { StripeWebhookEvent } from "@/lib/stripe/adapter"
 import type { StripeEventHandler } from "@/lib/webhooks/stripe"
 
@@ -28,7 +29,7 @@ const refundSchema = z.object({
  * - A refund we have no record of is an error, so Stripe retries once our
  *   write has committed (the refund id is saved just after Stripe answers).
  *
- * Restocking the place is E10-S1-05.
+ * A refunded item gives its places back to its slot, once (E10-S1-05).
  */
 export const handleRefundUpdated: StripeEventHandler = (event, tx) =>
   applyRefundUpdate(event, tx)
@@ -137,6 +138,9 @@ async function settleItemAndBooking(
       where: { id: item.id },
       data: { status: "REFUNDED" },
     })
+
+    // Once per item: the places come back only in the write that marks it REFUNDED.
+    await restockItem(tx, item.id)
   }
 
   const booking = await tx.booking.findUniqueOrThrow({

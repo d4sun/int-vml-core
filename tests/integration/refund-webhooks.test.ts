@@ -249,3 +249,63 @@ describe("refund webhooks (Postgres, fake Stripe)", () => {
     expect((await refundRow(b.refundId)).status).toBe("pending")
   })
 })
+
+describe("restocking refunded places (Postgres, fake Stripe)", () => {
+  const remainingOf = async (refundId: string) => {
+    const refund = await prisma.refund.findUniqueOrThrow({
+      where: { id: refundId },
+      select: { bookingItem: { select: { availabilityId: true } } },
+    })
+
+    return (
+      await prisma.availability.findUniqueOrThrow({
+        where: { id: refund.bookingItem.availabilityId },
+        select: { remaining: true },
+      })
+    ).remaining
+  }
+
+  it("a full refund gives its place back to the slot (capacity 5, one held: 4 to 5)", async () => {
+    const b = await bookingWithRefund([1000], 1000)
+    expect(await remainingOf(b.refundId)).toBe(4)
+
+    await send(refundEvent(b, "succeeded", 1000))
+
+    expect(await remainingOf(b.refundId)).toBe(5)
+  })
+
+  it("the same success again gives no place back a second time", async () => {
+    const b = await bookingWithRefund([1000], 1000)
+
+    await send(refundEvent(b, "succeeded", 1000, "evt_r1"))
+    await send(refundEvent(b, "succeeded", 1000, "evt_r2"))
+
+    expect(await remainingOf(b.refundId)).toBe(5)
+  })
+
+  it("a partial refund does not free the place: the item is not refunded yet", async () => {
+    const b = await bookingWithRefund([1000], 400)
+
+    await send(refundEvent(b, "succeeded", 400))
+
+    expect(await remainingOf(b.refundId)).toBe(4)
+  })
+
+  it("a slot that would go past its capacity rolls the refund back and is retried", async () => {
+    const b = await bookingWithRefund([1000], 1000)
+    const refund = await prisma.refund.findUniqueOrThrow({
+      where: { id: b.refundId },
+      select: { bookingItem: { select: { availabilityId: true } } },
+    })
+    await prisma.availability.update({
+      where: { id: refund.bookingItem.availabilityId },
+      data: { remaining: 5 },
+    })
+
+    const result = await send(refundEvent(b, "succeeded", 1000))
+
+    expect(result.status).toBe(500)
+    expect((await refundRow(b.refundId)).status).toBe("pending")
+    expect(await remainingOf(b.refundId)).toBe(5)
+  })
+})
