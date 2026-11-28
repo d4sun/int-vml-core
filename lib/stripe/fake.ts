@@ -6,6 +6,10 @@ import {
   type CreateTransferInput,
   type PaymentIntent,
   type Transfer,
+  type CreateRefundInput,
+  type CreateTransferReversalInput,
+  type Refund,
+  type TransferReversal,
   StripeAccountNotFoundError,
   StripeIdempotencyError,
   type AccountLink,
@@ -50,6 +54,13 @@ export class FakeStripe implements StripeAdapter {
   private readonly linkKeys = new Map<string, Stored<AccountLink>>()
   private readonly paymentKeys = new Map<string, Stored<PaymentIntent>>()
   private readonly transferKeys = new Map<string, Stored<Transfer>>()
+  private readonly refundKeys = new Map<string, Stored<Refund>>()
+  private readonly reversalKeys = new Map<string, Stored<TransferReversal>>()
+
+  /** Test control: when true, every refund is declined (E10-S1-02 failure path). */
+  failRefunds = false
+  /** Test control: when true, every transfer reversal is declined. */
+  failReversals = false
 
   /** Every call made through the interface, for assertions. */
   readonly calls: {
@@ -219,6 +230,51 @@ export class FakeStripe implements StripeAdapter {
     this.remember(this.transferKeys, options, input, transfer)
 
     return { ...transfer }
+  }
+
+  async createRefund(
+    input: CreateRefundInput,
+    options: RequestOptions = {}
+  ): Promise<Refund> {
+    this.calls.push({ method: "createRefund", input, options })
+
+    if (this.failRefunds) throw new Error("refund was declined")
+
+    const replay = this.replay(this.refundKeys, options, input)
+
+    if (replay) return { ...replay }
+
+    const refund: Refund = {
+      id: `re_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+      amount: input.amount,
+      status: "succeeded",
+    }
+
+    this.remember(this.refundKeys, options, input, refund)
+
+    return { ...refund }
+  }
+
+  async reverseTransfer(
+    input: CreateTransferReversalInput,
+    options: RequestOptions = {}
+  ): Promise<TransferReversal> {
+    this.calls.push({ method: "reverseTransfer", input, options })
+
+    if (this.failReversals) throw new Error("transfer reversal was declined")
+
+    const replay = this.replay(this.reversalKeys, options, input)
+
+    if (replay) return { ...replay }
+
+    const reversal: TransferReversal = {
+      id: `trr_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+      amount: input.amount,
+    }
+
+    this.remember(this.reversalKeys, options, input, reversal)
+
+    return { ...reversal }
   }
 
   async createPaymentIntent(
