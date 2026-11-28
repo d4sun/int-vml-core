@@ -3,6 +3,9 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { NearbyRail } from "@/components/brand/nearby-rail"
 import { SaveToTrip } from "@/components/trips/save-to-trip"
+import { SlotPicker, type PickableSlot } from "@/components/cart/slot-picker"
+import { addToCartAction } from "@/app/(www)/cart/actions"
+import { bookableSlotsForListing } from "@/lib/services/bookable-slots"
 import { UnauthenticatedError } from "@/lib/errors"
 import { listTrips } from "@/lib/services/trip"
 import { saveToTripAction } from "@/app/(www)/trips/actions"
@@ -59,6 +62,21 @@ export default async function ListingPage({
           east: listing.lng + NEARBY_DEGREES,
         })
       : null
+
+  const now = new Date()
+  const prisma = (await import("@/lib/prisma")).prisma
+  const pickable: PickableSlot[] = (
+    await bookableSlotsForListing(listing.id, now, prisma)
+  ).map((slot) => ({
+    availabilityId: slot.availabilityId,
+    label: slot.startAt.toLocaleString("en-GB", {
+      timeZone: "Europe/London",
+      dateStyle: "medium",
+      timeStyle: "short",
+    }),
+    unitPrice: slot.unitPrice,
+    remaining: slot.remaining,
+  }))
 
   // Trips are only for signed-in visitors; everyone else is asked to sign in.
   const trips = await listTrips()
@@ -166,6 +184,13 @@ export default async function ListingPage({
                 ))}
               </ul>
             )}
+            <div className="mt-6 border-t border-border pt-5">
+              <h3 className="text-sm font-bold text-vml-ink">Choose a time</h3>
+              <div className="mt-3">
+                <SlotPicker slots={pickable} action={addToCartAction} />
+              </div>
+            </div>
+
             <div className="mt-6 border-t border-border pt-5">
               <h3 className="text-sm font-bold text-vml-ink">Save for later</h3>
               <div className="mt-3">

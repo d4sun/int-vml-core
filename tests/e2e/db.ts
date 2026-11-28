@@ -204,3 +204,26 @@ export async function vendorCommission(
 
   return vendor.commissionBpsOverride
 }
+
+/** An open slot on a listing's first product, starting at the given time. */
+export async function addOpenSlot(
+  listingId: string,
+  startAt: Date,
+  remaining = 5
+): Promise<string> {
+  const product = await db().product.findFirstOrThrow({
+    where: { listingId },
+    select: { id: true },
+  })
+  const slot = await db().availability.create({
+    data: {
+      productId: product.id,
+      startAt,
+      endAt: new Date(startAt.getTime() + 60 * 60 * 1000),
+      capacity: remaining,
+      remaining,
+    },
+  })
+
+  return slot.id
+}

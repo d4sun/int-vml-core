@@ -2,15 +2,12 @@ import type { PrismaClient } from "@prisma/client"
 import { requireUser, type SessionSource } from "@/lib/auth/guards"
 import { NotFoundError } from "@/lib/errors"
 import { londonParts } from "@/lib/time/london"
+import {
+  bookableSlotsForListing,
+  type BookableSlot,
+} from "@/lib/services/bookable-slots"
 
-export type BookableSlot = {
-  availabilityId: string
-  productName: string
-  startAt: Date
-  /** Pence per place: the slot's own price if set, otherwise the product's. */
-  unitPrice: number
-  remaining: number
-}
+export type { BookableSlot }
 
 export type TripItemOffer = {
   tripItemId: string
@@ -84,41 +81,7 @@ export async function offerForTripItem(
 
   if (!item) throw new NotFoundError("That item was not found")
 
-  const rows = await db.availability.findMany({
-    where: {
-      closed: false,
-      remaining: { gt: 0 },
-      startAt: { gt: now },
-      product: { active: true, listingId: item.listingId },
-    },
-    orderBy: { startAt: "asc" },
-    take: 200,
-    select: {
-      id: true,
-      startAt: true,
-      remaining: true,
-      priceOverride: true,
-      product: { select: { name: true, basePrice: true, policy: true } },
-    },
-  })
-
-  const slots: BookableSlot[] = rows
-    .filter((row) => {
-      const hours = (
-        row.product.policy as { bookingCutoffHours?: unknown } | null
-      )?.bookingCutoffHours
-      const cutoff =
-        typeof hours === "number" && Number.isFinite(hours) ? hours : 0
-
-      return row.startAt.getTime() > now.getTime() + cutoff * 60 * 60 * 1000
-    })
-    .map((row) => ({
-      availabilityId: row.id,
-      productName: row.product.name,
-      startAt: row.startAt,
-      unitPrice: row.priceOverride ?? row.product.basePrice,
-      remaining: row.remaining,
-    }))
+  const slots = await bookableSlotsForListing(item.listingId, now, db)
 
   const plannedDate = item.plannedDate
     ? item.plannedDate.toISOString().slice(0, 10)
