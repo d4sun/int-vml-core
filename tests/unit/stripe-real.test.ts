@@ -19,6 +19,14 @@ function stubClient(overrides: Partial<StripeClientLike> = {}) {
   const calls: Call[] = []
 
   const client: StripeClientLike = {
+    checkout: {
+      sessions: {
+        async create(params, options) {
+          calls.push({ method: "checkout.sessions.create", params, options })
+          return { id: "cs_123", url: "https://checkout.stripe.test/cs_123" }
+        },
+      },
+    },
     transfers: {
       async create(params, options) {
         calls.push({ method: "transfers.create", params, options })

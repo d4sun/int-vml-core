@@ -5,6 +5,7 @@ import { FakeStripe } from "@/lib/stripe/fake"
 import { handlePaymentSucceeded } from "@/lib/webhooks/payment-succeeded"
 import { handleStripeWebhook } from "@/lib/webhooks/stripe"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
+import { TEST_APP_URL } from "../helpers/recording-transactional-queue"
 
 let prisma: PrismaClient
 let stripe: FakeStripe
@@ -103,7 +104,7 @@ async function pendingPaidBooking(userId: string, total = 1000) {
   })
   // The payment belongs to the booking's own visitor; start it as them.
   const u = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
-  const intent = await startPayment(booking.id, 1, {
+  await startPayment(booking.id, 1, {
     session: async () => ({
       user: {
         id: u.id,
@@ -115,9 +116,17 @@ async function pendingPaidBooking(userId: string, total = 1000) {
     }),
     db: prisma,
     stripe,
+    appUrl: TEST_APP_URL,
   })
 
-  return { bookingId: booking.id, intentId: intent.stripePaymentIntentId }
+  // Stripe creates the intent when the visitor pays; this fixture stands in for it.
+  const intentId = `pi_test_${booking.id.slice(0, 8)}`
+  await prisma.payment.update({
+    where: { bookingId: booking.id },
+    data: { stripePaymentIntentId: intentId },
+  })
+
+  return { bookingId: booking.id, intentId }
 }
 
 function event(
