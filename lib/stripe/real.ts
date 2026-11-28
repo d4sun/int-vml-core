@@ -1,5 +1,9 @@
 import Stripe from "stripe"
 import {
+  type CreateRefundInput,
+  type CreateTransferReversalInput,
+  type Refund,
+  type TransferReversal,
   type CheckoutSession,
   type CreateCheckoutSessionInput,
   type CreatePaymentIntentInput,
@@ -95,6 +99,23 @@ export type StripeClientLike = {
       },
       options?: { idempotencyKey?: string }
     ): Promise<{ id: string; amount: number; object: string }>
+    createReversal(
+      id: string,
+      params: { amount: number; metadata: Record<string, string> },
+      options?: { idempotencyKey?: string }
+    ): Promise<{ id: string; amount: number; object: string }>
+  }
+  refunds: {
+    create(
+      params: {
+        payment_intent: string
+        amount: number
+        reverse_transfer?: boolean
+        refund_application_fee?: boolean
+        metadata: Record<string, string>
+      },
+      options?: { idempotencyKey?: string }
+    ): Promise<{ id: string; amount: number; status?: string | null }>
   }
   paymentIntents: {
     create(
@@ -302,6 +323,55 @@ export class RealStripe implements StripeAdapter {
       )
 
       return { id: transfer.id, amount: transfer.amount, status: "created" }
+    } catch (error) {
+      throw translate(error)
+    }
+  }
+
+  async createRefund(
+    input: CreateRefundInput,
+    options: RequestOptions = {}
+  ): Promise<Refund> {
+    try {
+      const refund = await this.client.refunds.create(
+        {
+          payment_intent: input.paymentIntentId,
+          amount: input.amount,
+          // A destination charge takes the vendor's money back in this call;
+          // the platform keeps its fee (no refund_application_fee).
+          reverse_transfer: input.reverseTransfer,
+          refund_application_fee: false,
+          metadata: { refundId: input.refundId },
+        },
+        options.idempotencyKey
+          ? { idempotencyKey: options.idempotencyKey }
+          : undefined
+      )
+
+      return {
+        id: refund.id,
+        amount: refund.amount,
+        status: refund.status ?? "pending",
+      }
+    } catch (error) {
+      throw translate(error)
+    }
+  }
+
+  async reverseTransfer(
+    input: CreateTransferReversalInput,
+    options: RequestOptions = {}
+  ): Promise<TransferReversal> {
+    try {
+      const reversal = await this.client.transfers.createReversal(
+        input.transferId,
+        { amount: input.amount, metadata: { refundId: input.refundId } },
+        options.idempotencyKey
+          ? { idempotencyKey: options.idempotencyKey }
+          : undefined
+      )
+
+      return { id: reversal.id, amount: reversal.amount }
     } catch (error) {
       throw translate(error)
     }

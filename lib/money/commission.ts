@@ -51,3 +51,43 @@ export function splitSale(
 
   return { commission, vendorShare: subtotalPence - commission }
 }
+
+/**
+ * `amount × part / whole` in whole pence, half to even, like the commission
+ * above. Used to take a fair share of a refund (E10-S1-02): the commission
+ * part of a refund is proportional to the commission on the whole item.
+ */
+export function proportionalAmount(
+  amount: number,
+  part: number,
+  whole: number
+): number {
+  if (
+    !Number.isSafeInteger(amount) ||
+    !Number.isSafeInteger(part) ||
+    !Number.isSafeInteger(whole) ||
+    amount < 0 ||
+    part < 0 ||
+    whole <= 0
+  ) {
+    throw new RangeError(
+      "amounts must be whole, non-negative pence (whole > 0)"
+    )
+  }
+
+  const product = BigInt(amount) * BigInt(part)
+  const denominator = BigInt(whole)
+  const quotient = product / denominator
+  const remainder = product % denominator
+  const twice = remainder * TWO
+  let rounded = quotient
+
+  if (
+    twice > denominator ||
+    (twice === denominator && quotient % TWO === ONE)
+  ) {
+    rounded = quotient + ONE
+  }
+
+  return Number(rounded)
+}

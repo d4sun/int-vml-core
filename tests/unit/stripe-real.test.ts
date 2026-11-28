@@ -32,6 +32,24 @@ function stubClient(overrides: Partial<StripeClientLike> = {}) {
         calls.push({ method: "transfers.create", params, options })
         return { id: "tr_123", amount: params.amount, object: "transfer" }
       },
+      async createReversal(id, params, options) {
+        calls.push({
+          method: "transfers.createReversal",
+          params: { id, ...params },
+          options,
+        })
+        return {
+          id: "trr_123",
+          amount: params.amount,
+          object: "transfer_reversal",
+        }
+      },
+    },
+    refunds: {
+      async create(params, options) {
+        calls.push({ method: "refunds.create", params, options })
+        return { id: "re_123", amount: params.amount, status: "succeeded" }
+      },
     },
     paymentIntents: {
       async create(params, options) {

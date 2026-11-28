@@ -47,6 +47,31 @@ export type CreateTransferInput = {
 
 export type Transfer = { id: string; amount: number; status: string }
 
+export type CreateRefundInput = {
+  /** The intent the visitor paid. */
+  paymentIntentId: string
+  amount: number
+  /** Our refund id, kept as metadata and as the idempotency key's owner. */
+  refundId: string
+  /**
+   * True for a destination charge: Stripe takes the sale back from the vendor
+   * in the same call. False for a platform charge, where the platform sends
+   * its own transfer reversal separately.
+   */
+  reverseTransfer: boolean
+}
+
+export type Refund = { id: string; amount: number; status: string }
+
+export type CreateTransferReversalInput = {
+  /** The Stripe transfer id (`tr_…`) that was sent to the vendor. */
+  transferId: string
+  amount: number
+  refundId: string
+}
+
+export type TransferReversal = { id: string; amount: number }
+
 export type CreatePaymentIntentInput = {
   amount: number
   /** Our booking id, stored as metadata so a payment traces back to it. */
@@ -158,6 +183,18 @@ export interface StripeAdapter {
     input: CreateTransferInput,
     options?: RequestOptions
   ): Promise<Transfer>
+
+  /** Refunds part or all of a paid intent. Same key, same refund (E10-S1-02). */
+  createRefund(
+    input: CreateRefundInput,
+    options?: RequestOptions
+  ): Promise<Refund>
+
+  /** Takes money back from a vendor's transfer. Same key, same reversal. */
+  reverseTransfer(
+    input: CreateTransferReversalInput,
+    options?: RequestOptions
+  ): Promise<TransferReversal>
 }
 
 /** The webhook could not be verified. Callers answer 400 and do nothing else. */
