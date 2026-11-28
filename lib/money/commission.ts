@@ -91,3 +91,29 @@ export function proportionalAmount(
 
   return Number(rounded)
 }
+
+/**
+ * The commission part of one refund, when an item is refunded in several
+ * parts (E10-S1-04). It is the commission on the running refunded total
+ * after this refund, less the commission on the total before it. The parts
+ * therefore add up to exactly the commission on whatever has been refunded,
+ * so the shares reconcile to the penny; a single rounding per refund would
+ * drift.
+ */
+export function refundCommissionShare(
+  refundedBefore: number,
+  refundAmount: number,
+  subtotal: number,
+  commission: number
+): number {
+  const after = refundedBefore + refundAmount
+
+  if (after > subtotal) {
+    throw new RangeError("refunds cannot exceed the subtotal")
+  }
+
+  return (
+    proportionalAmount(after, commission, subtotal) -
+    proportionalAmount(refundedBefore, commission, subtotal)
+  )
+}
