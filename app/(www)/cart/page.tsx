@@ -6,6 +6,7 @@ import { formatPence } from "@/lib/money/format"
 import { UnauthenticatedError } from "@/lib/errors"
 import { getCart } from "@/lib/services/cart"
 import { removeCartItemFormAction, updateCartItemFormAction } from "./actions"
+import { payCartAction } from "../checkout/actions"
 
 export const metadata: Metadata = {
   title: "Your cart",
@@ -145,8 +146,26 @@ export default async function CartPage() {
           <p className="mt-8 text-right text-lg font-bold text-vml-ink">
             Total {formatPence(cart.total)}
           </p>
-          <p className="mt-2 text-right text-sm text-muted-foreground">
-            Checkout is not available yet.
+          <form action={payCartAction} className="mt-4 flex justify-end">
+            {cart.groups
+              .flatMap((group) => group.items)
+              .map((item) => (
+                <input
+                  key={item.holdId}
+                  type="hidden"
+                  name="holdId"
+                  value={item.holdId}
+                />
+              ))}
+            <button
+              type="submit"
+              className="rounded-xl bg-vml-navy px-5 py-2 text-sm font-semibold text-white"
+            >
+              Continue to payment
+            </button>
+          </form>
+          <p className="mt-2 text-right text-xs text-muted-foreground">
+            You will pay on Stripe&apos;s secure page.
           </p>
         </>
       )}

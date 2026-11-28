@@ -59,6 +59,24 @@ export type CreatePaymentIntentInput = {
   transferGroup?: string
 }
 
+/**
+ * A hosted Stripe Checkout page for one booking. Stripe takes the card and
+ * creates the payment intent; the charge and transfer params are passed on to it.
+ */
+export type CreateCheckoutSessionInput = {
+  amount: number
+  bookingId: string
+  /** Shown to the visitor on the Stripe page. */
+  description: string
+  successUrl: string
+  cancelUrl: string
+  destinationAccountId?: string
+  applicationFeeAmount?: number
+  transferGroup?: string
+}
+
+export type CheckoutSession = { id: string; url: string }
+
 export type PaymentIntent = {
   id: string
   clientSecret: string | null
@@ -128,6 +146,12 @@ export interface StripeAdapter {
     input: CreatePaymentIntentInput,
     options?: RequestOptions
   ): Promise<PaymentIntent>
+
+  /** A hosted checkout page for a booking. Same key, same session. */
+  createCheckoutSession(
+    input: CreateCheckoutSessionInput,
+    options?: RequestOptions
+  ): Promise<CheckoutSession>
 
   /** Sends a vendor's share of a platform charge. Same key, same transfer. */
   createTransfer(
