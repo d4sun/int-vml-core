@@ -341,3 +341,41 @@ export async function bookingItemStatus(itemId: string): Promise<string> {
     })
   ).status
 }
+
+/** The visitor's most recent booking (any status), by their email. */
+export async function latestBookingFor(
+  email: string
+): Promise<{ id: string; status: string }> {
+  return db().booking.findFirstOrThrow({
+    where: { tourist: { email } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, status: true },
+  })
+}
+
+/** The payments and transfers a booking produced, for money assertions (E2E-02). */
+export async function moneyForBooking(bookingId: string) {
+  const payments = await db().payment.findMany({
+    where: { bookingId },
+    select: { status: true, amount: true },
+  })
+  const items = await db().bookingItem.findMany({
+    where: { bookingId },
+    select: {
+      vendorId: true,
+      commissionAmount: true,
+      subtotal: true,
+      transfers: { select: { amount: true, status: true } },
+    },
+  })
+
+  return {
+    payments,
+    items: items.map((i) => ({
+      vendorId: i.vendorId,
+      commissionAmount: i.commissionAmount,
+      subtotal: i.subtotal,
+      transfers: i.transfers,
+    })),
+  }
+}

@@ -10,6 +10,8 @@ export const E2E_OUTBOX_DIR = path.resolve(
 
 // Same origin for the app and Better Auth, so cookies and the origin check
 // behave exactly as they do for a real visitor.
+export const E2E_STRIPE_WEBHOOK_SECRET = "whsec_e2e_only_not_used_in_production"
+
 const appEnv = {
   BETTER_AUTH_URL: BASE_URL,
   BETTER_AUTH_SECRET:
@@ -19,7 +21,7 @@ const appEnv = {
   // unless it is asked for by name and given its own webhook secret.
   STRIPE_ADAPTER: "fake",
   STORAGE_ADAPTER: "fake",
-  STRIPE_WEBHOOK_SECRET: "whsec_e2e_only_not_used_in_production",
+  STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,
   NEXT_TELEMETRY_DISABLED: "1",
 }
 
