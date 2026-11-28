@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client"
 import { ConflictError, NotFoundError } from "@/lib/errors"
-import { proportionalAmount } from "@/lib/money/commission"
+import { refundCommissionShare } from "@/lib/money/commission"
 import type { StripeAdapter } from "@/lib/stripe/adapter"
 
 export type SettlementDeps = {
@@ -118,10 +118,22 @@ export async function settleRefund(
   let transferReversalId: string | null = null
 
   if (!destination && sent?.stripeTransferId) {
-    const commissionPart = proportionalAmount(
+    // Refunds made earlier on this item (not failed) take their share first,
+    // so the commission on the item is kept to the penny across all refunds.
+    const earlier = await db.refund.findMany({
+      where: {
+        bookingItemId: item.id,
+        status: { not: "failed" },
+        createdAt: { lt: refund.createdAt },
+      },
+      select: { amount: true },
+    })
+    const refundedBefore = earlier.reduce((sum, r) => sum + r.amount, 0)
+    const commissionPart = refundCommissionShare(
+      refundedBefore,
       refund.amount,
-      item.commissionAmount,
-      item.subtotal
+      item.subtotal,
+      item.commissionAmount
     )
 
     try {
