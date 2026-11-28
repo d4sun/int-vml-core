@@ -27,3 +27,12 @@ export {
   listingRejectedEmail,
 } from "./listing-moderation"
 export type { ListingModerationEmailInput } from "./listing-moderation"
+export {
+  bookingConfirmedEmail,
+  newBookingEmail,
+} from "./booking"
+export type {
+  BookingConfirmedEmailInput,
+  BookingEmailLine,
+  NewBookingEmailInput,
+} from "./booking"
