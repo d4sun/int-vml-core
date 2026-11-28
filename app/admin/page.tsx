@@ -41,6 +41,17 @@ export default async function AdminHomePage() {
             </span>
           </Link>
         </li>
+        <li>
+          <Link
+            href="/admin/ledger"
+            className="block rounded-2xl border border-border bg-card p-5 hover:shadow-md"
+          >
+            <span className="text-lg font-bold text-vml-ink">Ledger</span>
+            <span className="mt-1 block text-sm text-muted-foreground">
+              Payments, vendor transfers and refunds, with totals.
+            </span>
+          </Link>
+        </li>
       </ul>
     </SurfaceShell>
   )
