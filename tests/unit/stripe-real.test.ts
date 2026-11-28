@@ -19,6 +19,12 @@ function stubClient(overrides: Partial<StripeClientLike> = {}) {
   const calls: Call[] = []
 
   const client: StripeClientLike = {
+    transfers: {
+      async create(params, options) {
+        calls.push({ method: "transfers.create", params, options })
+        return { id: "tr_123", amount: params.amount, object: "transfer" }
+      },
+    },
     paymentIntents: {
       async create(params, options) {
         calls.push({ method: "paymentIntents.create", params, options })

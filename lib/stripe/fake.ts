@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto"
 import {
   type CreatePaymentIntentInput,
+  type CreateTransferInput,
   type PaymentIntent,
+  type Transfer,
   StripeAccountNotFoundError,
   StripeIdempotencyError,
   type AccountLink,
@@ -45,6 +47,7 @@ export class FakeStripe implements StripeAdapter {
   private readonly accountKeys = new Map<string, Stored<ConnectAccount>>()
   private readonly linkKeys = new Map<string, Stored<AccountLink>>()
   private readonly paymentKeys = new Map<string, Stored<PaymentIntent>>()
+  private readonly transferKeys = new Map<string, Stored<Transfer>>()
 
   /** Every call made through the interface, for assertions. */
   readonly calls: {
@@ -119,6 +122,34 @@ export class FakeStripe implements StripeAdapter {
     this.remember(this.linkKeys, options, input, link)
 
     return { ...link }
+  }
+
+  /** Test control: transfers to these accounts fail, as a declined payout would. */
+  failTransfersTo = new Set<string>()
+
+  async createTransfer(
+    input: CreateTransferInput,
+    options: RequestOptions = {}
+  ): Promise<Transfer> {
+    this.calls.push({ method: "createTransfer", input, options })
+
+    if (this.failTransfersTo.has(input.destinationAccountId)) {
+      throw new Error(`transfer to ${input.destinationAccountId} was declined`)
+    }
+
+    const replay = this.replay(this.transferKeys, options, input)
+
+    if (replay) return { ...replay }
+
+    const transfer: Transfer = {
+      id: `tr_fake_${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+      amount: input.amount,
+      status: "created",
+    }
+
+    this.remember(this.transferKeys, options, input, transfer)
+
+    return { ...transfer }
   }
 
   async createPaymentIntent(

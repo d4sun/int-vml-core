@@ -94,4 +94,28 @@ export async function handlePaymentSucceeded(
     where: { bookingId: payment.bookingId, status: "PENDING" },
     data: { status: "CONFIRMED" },
   })
+
+  // Several vendors: the platform holds the money, so each item's share (its
+  // subtotal less its commission) is recorded as a pending transfer. The
+  // transfers are sent to Stripe afterwards, never from inside this handler
+  // (E2-S3-02). A single-vendor booking is a destination charge: nothing to split.
+  const items = await tx.bookingItem.findMany({
+    where: { bookingId: payment.bookingId },
+    select: {
+      id: true,
+      vendorId: true,
+      subtotal: true,
+      commissionAmount: true,
+    },
+  })
+
+  if (new Set(items.map((item) => item.vendorId)).size > 1) {
+    await tx.transfer.createMany({
+      data: items.map((item) => ({
+        bookingItemId: item.id,
+        amount: item.subtotal - item.commissionAmount,
+        status: "pending",
+      })),
+    })
+  }
 }

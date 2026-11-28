@@ -1,7 +1,9 @@
 import Stripe from "stripe"
 import {
   type CreatePaymentIntentInput,
+  type CreateTransferInput,
   type PaymentIntent,
+  type Transfer,
   StripeAccountNotFoundError,
   StripeIdempotencyError,
   StripeSignatureError,
@@ -52,6 +54,18 @@ export type StripeClientLike = {
       },
       options?: { idempotencyKey?: string }
     ): Promise<{ url: string; expires_at: number }>
+  }
+  transfers: {
+    create(
+      params: {
+        amount: number
+        currency: string
+        destination: string
+        transfer_group: string
+        metadata: Record<string, string>
+      },
+      options?: { idempotencyKey?: string }
+    ): Promise<{ id: string; amount: number; object: string }>
   }
   paymentIntents: {
     create(
@@ -189,6 +203,30 @@ export class RealStripe implements StripeAdapter {
         throw new StripeAccountNotFoundError(input.accountId)
       }
 
+      throw translate(error)
+    }
+  }
+
+  async createTransfer(
+    input: CreateTransferInput,
+    options: RequestOptions = {}
+  ): Promise<Transfer> {
+    try {
+      const transfer = await this.client.transfers.create(
+        {
+          amount: input.amount,
+          currency: "gbp",
+          destination: input.destinationAccountId,
+          transfer_group: input.transferGroup,
+          metadata: { transferId: input.transferId },
+        },
+        options.idempotencyKey
+          ? { idempotencyKey: options.idempotencyKey }
+          : undefined
+      )
+
+      return { id: transfer.id, amount: transfer.amount, status: "created" }
+    } catch (error) {
       throw translate(error)
     }
   }

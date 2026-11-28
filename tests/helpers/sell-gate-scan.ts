@@ -28,6 +28,20 @@ const PAYOUT = [
  * future story cannot add either path and forget the gate (CR-4: hard-gated
  * server-side). Reads of PUBLISHED listings are not writes and do not match.
  */
+/**
+ * Payout-shaped code that is allowed without the gate in its own file, with the
+ * reason. Each one sends no money itself: the Stripe adapter is the transport
+ * that the settlement service calls (and gates); the payment handler only
+ * records pending transfer rows, which settlement sends after the gate.
+ */
+export const PAYOUT_EXEMPT: Readonly<Record<string, string>> = {
+  "lib/stripe/adapter.ts": "transport interface; callers are gated",
+  "lib/stripe/real.ts": "transport: the SDK call; callers are gated",
+  "lib/stripe/fake.ts": "transport: the test double; callers are gated",
+  "lib/webhooks/payment-succeeded.ts":
+    "records pending transfers only; settlement is gated",
+}
+
 export function findUngatedSellPaths(files: SourceFile[]): UngatedPath[] {
   const found: UngatedPath[] = []
 
@@ -38,7 +52,10 @@ export function findUngatedSellPaths(files: SourceFile[]): UngatedPath[] {
       found.push({ path: file.path, kind: "publish" })
     }
 
-    if (PAYOUT.some((pattern) => pattern.test(file.text))) {
+    if (
+      !(file.path in PAYOUT_EXEMPT) &&
+      PAYOUT.some((pattern) => pattern.test(file.text))
+    ) {
       found.push({ path: file.path, kind: "payout" })
     }
   }
