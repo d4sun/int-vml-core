@@ -63,6 +63,17 @@ export default async function AdminHomePage() {
             </span>
           </Link>
         </li>
+        <li>
+          <Link
+            href="/admin/metrics"
+            className="block rounded-2xl border border-border bg-card p-5 hover:shadow-md"
+          >
+            <span className="text-lg font-bold text-vml-ink">Metrics</span>
+            <span className="mt-1 block text-sm text-muted-foreground">
+              Gross value, commission, refunds and counts by date.
+            </span>
+          </Link>
+        </li>
       </ul>
     </SurfaceShell>
   )
