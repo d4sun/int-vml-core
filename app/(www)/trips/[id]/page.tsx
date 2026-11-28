@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { UnauthenticatedError, NotFoundError } from "@/lib/errors"
 import { getTrip } from "@/lib/services/trip"
 import {
+  addTripItemToCartFormAction,
   deleteTripFormAction,
   moveTripItemFormAction,
   removeTripItemFormAction,
@@ -98,6 +99,18 @@ export default async function TripPage({
                     aria-label={`Move ${item.listingTitle} down`}
                   >
                     Down
+                  </Button>
+                </form>
+                <form action={addTripItemToCartFormAction}>
+                  <input type="hidden" name="tripId" value={trip.id} />
+                  <input type="hidden" name="tripItemId" value={item.id} />
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Add ${item.listingTitle} to cart`}
+                  >
+                    Add to cart
                   </Button>
                 </form>
                 <form action={removeTripItemFormAction}>
