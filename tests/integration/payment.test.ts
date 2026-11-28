@@ -4,6 +4,7 @@ import { ConflictError, NotFoundError } from "@/lib/errors"
 import { startPayment } from "@/lib/services/payment"
 import { FakeStripe } from "@/lib/stripe/fake"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
+import { TEST_APP_URL } from "../helpers/recording-transactional-queue"
 
 let prisma: PrismaClient
 beforeAll(() => {
@@ -131,10 +132,11 @@ describe("starting a payment (Postgres, fake Stripe)", () => {
       session: u.session as never,
       db: prisma,
       stripe,
+      appUrl: TEST_APP_URL,
     })
 
     expect(started.plan.mode).toBe("DESTINATION")
-    const call = stripe.calls.find((c) => c.method === "createPaymentIntent")!
+    const call = stripe.calls.find((c) => c.method === "createCheckoutSession")!
     expect(call.input).toMatchObject({
       amount: 1000,
       destinationAccountId: "acct_single",
@@ -161,13 +163,14 @@ describe("starting a payment (Postgres, fake Stripe)", () => {
       session: u.session as never,
       db: prisma,
       stripe,
+      appUrl: TEST_APP_URL,
     })
 
     expect(started.plan.mode).toBe("PLATFORM")
     expect(
       started.plan.transfers.map((t) => t.amount).sort((x, y) => x - y)
     ).toEqual([900, 1800])
-    const call = stripe.calls.find((c) => c.method === "createPaymentIntent")!
+    const call = stripe.calls.find((c) => c.method === "createCheckoutSession")!
     expect(call.input).toMatchObject({
       amount: 3000,
       transferGroup: `booking:${booking.id}`,
@@ -188,24 +191,29 @@ describe("starting a payment (Postgres, fake Stripe)", () => {
       { v, subtotal: 1000, commission: 100 },
     ])
     const stripe = new FakeStripe()
-    const deps = { session: u.session as never, db: prisma, stripe }
+    const deps = {
+      session: u.session as never,
+      db: prisma,
+      stripe,
+      appUrl: TEST_APP_URL,
+    }
 
     const first = await startPayment(booking.id, 1, deps)
     const second = await startPayment(booking.id, 1, deps)
 
-    expect(second.stripePaymentIntentId).toBe(first.stripePaymentIntentId)
+    expect(second.checkoutSessionId).toBe(first.checkoutSessionId)
     expect(
       await prisma.payment.count({ where: { bookingId: booking.id } })
     ).toBe(1)
     // Stripe was asked exactly once: the second submit never reaches it.
     expect(
-      stripe.calls.filter((c) => c.method === "createPaymentIntent")
+      stripe.calls.filter((c) => c.method === "createCheckoutSession")
     ).toHaveLength(1)
 
     // A retry under a new attempt number still does not create a second intent.
     await startPayment(booking.id, 2, deps)
     expect(
-      stripe.calls.filter((c) => c.method === "createPaymentIntent")
+      stripe.calls.filter((c) => c.method === "createCheckoutSession")
     ).toHaveLength(1)
   })
 
@@ -238,6 +246,7 @@ describe("starting a payment (Postgres, fake Stripe)", () => {
       session: u.session as never,
       db: prisma,
       stripe,
+      appUrl: TEST_APP_URL,
     }).catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(ConflictError)

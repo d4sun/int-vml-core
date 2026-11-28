@@ -1,5 +1,7 @@
 import Stripe from "stripe"
 import {
+  type CheckoutSession,
+  type CreateCheckoutSessionInput,
   type CreatePaymentIntentInput,
   type CreateTransferInput,
   type PaymentIntent,
@@ -54,6 +56,33 @@ export type StripeClientLike = {
       },
       options?: { idempotencyKey?: string }
     ): Promise<{ url: string; expires_at: number }>
+  }
+  checkout: {
+    sessions: {
+      create(
+        params: {
+          mode: "payment"
+          line_items: {
+            quantity: number
+            price_data: {
+              currency: string
+              unit_amount: number
+              product_data: { name: string }
+            }
+          }[]
+          payment_intent_data: {
+            metadata: Record<string, string>
+            application_fee_amount?: number
+            transfer_data?: { destination: string }
+            transfer_group?: string
+          }
+          metadata: Record<string, string>
+          success_url: string
+          cancel_url: string
+        },
+        options?: { idempotencyKey?: string }
+      ): Promise<{ id: string; url: string | null }>
+    }
   }
   transfers: {
     create(
@@ -203,6 +232,53 @@ export class RealStripe implements StripeAdapter {
         throw new StripeAccountNotFoundError(input.accountId)
       }
 
+      throw translate(error)
+    }
+  }
+
+  async createCheckoutSession(
+    input: CreateCheckoutSessionInput,
+    options: RequestOptions = {}
+  ): Promise<CheckoutSession> {
+    try {
+      const session = await this.client.checkout.sessions.create(
+        {
+          mode: "payment",
+          line_items: [
+            {
+              quantity: 1,
+              price_data: {
+                currency: "gbp",
+                unit_amount: input.amount,
+                product_data: { name: input.description },
+              },
+            },
+          ],
+          payment_intent_data: {
+            metadata: { bookingId: input.bookingId },
+            ...(input.applicationFeeAmount !== undefined
+              ? { application_fee_amount: input.applicationFeeAmount }
+              : {}),
+            ...(input.destinationAccountId
+              ? { transfer_data: { destination: input.destinationAccountId } }
+              : {}),
+            ...(input.transferGroup
+              ? { transfer_group: input.transferGroup }
+              : {}),
+          },
+          metadata: { bookingId: input.bookingId },
+          success_url: input.successUrl,
+          cancel_url: input.cancelUrl,
+        },
+        options.idempotencyKey
+          ? { idempotencyKey: options.idempotencyKey }
+          : undefined
+      )
+
+      if (!session.url) throw new Error("Stripe returned no checkout page")
+
+      return { id: session.id, url: session.url }
+    } catch (error) {
       throw translate(error)
     }
   }

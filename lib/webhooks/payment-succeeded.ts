@@ -62,12 +62,34 @@ async function confirmPayment(
 ): Promise<void> {
   const intent = intentSchema.parse(event.data.object)
 
-  const [payment] = await tx.$queryRaw<
+  let [payment] = await tx.$queryRaw<
     { id: string; bookingId: string; amount: number; status: string }[]
   >`
     SELECT "id", "bookingId", "amount", "status"
     FROM "Payment" WHERE "stripePaymentIntentId" = ${intent.id} FOR UPDATE
   `
+
+  // Stripe Checkout creates the intent when the visitor pays, so the first event
+  // for a payment may be the first we hear of its intent. Its metadata names the
+  // booking; that payment takes this intent id, once.
+  if (!payment && intent.metadata?.bookingId) {
+    const [unlinked] = await tx.$queryRaw<
+      { id: string; bookingId: string; amount: number; status: string }[]
+    >`
+      SELECT "id", "bookingId", "amount", "status"
+      FROM "Payment"
+      WHERE "bookingId" = ${intent.metadata.bookingId} AND "stripePaymentIntentId" IS NULL
+      FOR UPDATE
+    `
+
+    if (unlinked) {
+      await tx.payment.update({
+        where: { id: unlinked.id },
+        data: { stripePaymentIntentId: intent.id },
+      })
+      payment = unlinked
+    }
+  }
 
   if (!payment) {
     throw new Error(
