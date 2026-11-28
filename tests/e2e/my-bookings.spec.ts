@@ -26,7 +26,9 @@ test("E2E-S3-01: a visitor sees their own booking with its London time; another 
   await page.goto("/account/bookings")
   await expect(page.getByText(title)).toBeVisible()
   await page.getByRole("link", { name: /Booking [0-9A-F]{8}/ }).click()
-  await expect(page.getByText("confirmed", { exact: false })).toBeVisible()
+  await expect(
+    page.getByText("Status: confirmed", { exact: false })
+  ).toBeVisible()
 
   const other = await createVerifiedUser(request)
   await signInAndWait(page, other.email, other.password)
