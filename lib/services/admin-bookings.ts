@@ -1,6 +1,10 @@
 import type { PrismaClient } from "@prisma/client"
 import { requireAdmin, type SessionSource } from "@/lib/auth/guards"
 import { NotFoundError } from "@/lib/errors"
+import {
+  REVERSAL_BLOCKED,
+  REVERSAL_SENT,
+} from "@/lib/services/refund-settlement"
 
 export type AdminBookingItem = {
   id: string
@@ -29,12 +33,17 @@ export type AdminBooking = {
     status: string
     reason: string | null
     createdAt: Date
+    /**
+     * The vendor's balance could not cover this refund's reversal, and no retry
+     * has succeeded since (E10-S1-08). Read from the audit log's latest entry.
+     */
+    flagged: boolean
   }[]
 }
 
 export type AdminBookingDeps = {
   session?: SessionSource
-  db?: Pick<PrismaClient, "booking">
+  db?: Pick<PrismaClient, "booking" | "auditLog">
 }
 
 /** One booking as an admin sees it, for refunds (E10-S1-07). Admin only. */
@@ -103,6 +112,27 @@ export async function getBookingForAdmin(
     }
   })
 
+  const refundIds = booking.items.flatMap((item) =>
+    item.refunds.map((r) => r.id)
+  )
+  const reversalLog = refundIds.length
+    ? await db.auditLog.findMany({
+        where: {
+          entityType: "Refund",
+          entityId: { in: refundIds },
+          action: { in: [REVERSAL_BLOCKED, REVERSAL_SENT] },
+        },
+        orderBy: { at: "desc" },
+        select: { entityId: true, action: true },
+      })
+    : []
+  const latestByRefund = new Map<string, string>()
+  for (const entry of reversalLog) {
+    if (!latestByRefund.has(entry.entityId)) {
+      latestByRefund.set(entry.entityId, entry.action)
+    }
+  }
+
   return {
     id: booking.id,
     status: booking.status,
@@ -113,6 +143,12 @@ export async function getBookingForAdmin(
     items,
     refunds: booking.items
       .flatMap((item) => item.refunds)
+      .map((refund) => ({
+        ...refund,
+        flagged:
+          refund.status === "pending" &&
+          latestByRefund.get(refund.id) === REVERSAL_BLOCKED,
+      }))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
   }
 }

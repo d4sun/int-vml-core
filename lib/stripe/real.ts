@@ -1,6 +1,7 @@
 import Stripe from "stripe"
 import {
   type CreateRefundInput,
+  StripeInsufficientFundsError,
   type CreateTransferReversalInput,
   type Refund,
   type TransferReversal,
@@ -444,6 +445,10 @@ export class RealStripe implements StripeAdapter {
 function translate(error: unknown): unknown {
   if (errorCode(error) === "idempotency_key_in_use") {
     return new StripeIdempotencyError()
+  }
+
+  if (errorCode(error) === "balance_insufficient") {
+    return new StripeInsufficientFundsError()
   }
 
   if (

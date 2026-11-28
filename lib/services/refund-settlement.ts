@@ -1,10 +1,18 @@
 import type { PrismaClient } from "@prisma/client"
 import { ConflictError, NotFoundError } from "@/lib/errors"
 import { refundCommissionShare } from "@/lib/money/commission"
-import type { StripeAdapter } from "@/lib/stripe/adapter"
+import {
+  StripeInsufficientFundsError,
+  type StripeAdapter,
+} from "@/lib/stripe/adapter"
+import { audit } from "@/lib/services/audit"
+
+/** Audit actions the admin's flag is read from (E10-S1-08): the last of these wins. */
+export const REVERSAL_BLOCKED = "refund.reversal_blocked"
+export const REVERSAL_SENT = "refund.reversal_sent"
 
 export type SettlementDeps = {
-  db?: Pick<PrismaClient, "refund">
+  db?: Pick<PrismaClient, "refund" | "auditLog">
   stripe: StripeAdapter
 }
 
@@ -17,6 +25,15 @@ export type SettlementOutcome =
   | { outcome: "blocked"; refundId: string; reason: "TRANSFER_NOT_SENT" }
   /** Stripe declined the refund. The refund is marked failed and frees its amount. */
   | { outcome: "failed"; refundId: string }
+  /**
+   * The refund went through but the vendor's balance could not cover the
+   * reversal. Flagged for an admin; retrying settles the reversal (E10-S1-08).
+   */
+  | {
+      outcome: "flagged"
+      refundId: string
+      reason: "VENDOR_BALANCE_INSUFFICIENT"
+    }
   /**
    * The refund went through but the vendor's reversal did not. The refund is
    * left pending with its Stripe id, so a retry sends only the reversal.
@@ -153,7 +170,25 @@ export async function settleRefund(
         { idempotencyKey: `reversal:${refundId}` }
       )
       transferReversalId = reversal.id
-    } catch {
+    } catch (error) {
+      if (error instanceof StripeInsufficientFundsError) {
+        // The visitor is refunded but the vendor's balance could not give the
+        // share back (E10-S1-08). Recorded for an admin; the refund stays pending.
+        await audit.record(db, {
+          actorId: null,
+          action: REVERSAL_BLOCKED,
+          entityType: "Refund",
+          entityId: refundId,
+          meta: { stripeRefundId, amount: refund.amount - commissionPart },
+        })
+
+        return {
+          outcome: "flagged",
+          refundId,
+          reason: "VENDOR_BALANCE_INSUFFICIENT",
+        }
+      }
+
       return { outcome: "partial", refundId }
     }
   }
@@ -164,6 +199,13 @@ export async function settleRefund(
     await db.refund.update({
       where: { id: refundId },
       data: { transferReversalId },
+    })
+    await audit.record(db, {
+      actorId: null,
+      action: REVERSAL_SENT,
+      entityType: "Refund",
+      entityId: refundId,
+      meta: { transferReversalId },
     })
   }
 

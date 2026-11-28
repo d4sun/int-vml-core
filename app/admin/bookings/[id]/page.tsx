@@ -2,12 +2,13 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { RefundForm } from "@/components/admin/refund-form"
+import { RetryReversalForm } from "@/components/admin/retry-reversal-form"
 import { SurfaceShell } from "@/components/surface-shell"
 import { enforceSurface } from "@/lib/auth/enforce-surface"
 import { NotFoundError } from "@/lib/errors"
 import { formatPence } from "@/lib/money/format"
 import { getBookingForAdmin } from "@/lib/services/admin-bookings"
-import { issueRefundAction } from "./actions"
+import { issueRefundAction, retryReversalAction } from "./actions"
 
 export const metadata: Metadata = { title: "Booking" }
 
@@ -141,6 +142,20 @@ export default async function AdminBookingPage({
                     <span>
                       {formatPence(refund.amount)} · {refund.status}
                     </span>
+                    {refund.flagged ? (
+                      <div className="w-full space-y-2 rounded-lg bg-destructive/10 p-3">
+                        <p className="font-medium text-destructive">
+                          The visitor was refunded, but the vendor&apos;s
+                          balance could not cover the reversal. Top up the
+                          vendor&apos;s balance, then retry.
+                        </p>
+                        <RetryReversalForm
+                          bookingId={booking.id}
+                          refundId={refund.id}
+                          action={retryReversalAction}
+                        />
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>

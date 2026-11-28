@@ -7,6 +7,7 @@ import {
   type PaymentIntent,
   type Transfer,
   type CreateRefundInput,
+  StripeInsufficientFundsError,
   type CreateTransferReversalInput,
   type Refund,
   type TransferReversal,
@@ -61,6 +62,8 @@ export class FakeStripe implements StripeAdapter {
   failRefunds = false
   /** Test control: when true, every transfer reversal is declined. */
   failReversals = false
+  /** Test control: when true, a reversal fails because the vendor's balance is too low. */
+  reversalsInsufficient = false
 
   /** Every call made through the interface, for assertions. */
   readonly calls: {
@@ -260,6 +263,8 @@ export class FakeStripe implements StripeAdapter {
     options: RequestOptions = {}
   ): Promise<TransferReversal> {
     this.calls.push({ method: "reverseTransfer", input, options })
+
+    if (this.reversalsInsufficient) throw new StripeInsufficientFundsError()
 
     if (this.failReversals) throw new Error("transfer reversal was declined")
 
