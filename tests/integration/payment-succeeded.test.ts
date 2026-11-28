@@ -9,7 +9,6 @@ import {
 } from "../helpers/recording-transactional-queue"
 import { handleStripeWebhook } from "@/lib/webhooks/stripe"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
-import { TEST_APP_URL } from "../helpers/recording-transactional-queue"
 
 let prisma: PrismaClient
 let stripe: FakeStripe
