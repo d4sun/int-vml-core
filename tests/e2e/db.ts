@@ -227,3 +227,67 @@ export async function addOpenSlot(
 
   return slot.id
 }
+
+/** A confirmed booking item on a listing's product, for a new tourist, starting in a week. */
+export async function addConfirmedBookingItem(
+  listingId: string
+): Promise<string> {
+  const suffix = randomUUID().slice(0, 8)
+  const product = await db().product.findFirstOrThrow({
+    where: { listingId },
+    select: { id: true, listing: { select: { vendorId: true } } },
+  })
+  const startAt = new Date(
+    Date.now() +
+      7 * 24 * 60 * 60 * 1000 +
+      Math.floor(Math.random() * 1000) * 60 * 1000
+  )
+  const availability = await db().availability.create({
+    data: {
+      productId: product.id,
+      startAt,
+      endAt: new Date(startAt.getTime() + 3600000),
+      capacity: 5,
+      remaining: 4,
+    },
+  })
+  const tourist = await db().user.create({
+    data: {
+      email: `guest-${suffix}@example.com`,
+      name: `Guest ${suffix}`,
+      emailVerified: true,
+      platformRole: "TOURIST",
+    },
+  })
+  const booking = await db().booking.create({
+    data: {
+      touristUserId: tourist.id,
+      status: "CONFIRMED",
+      total: 1500,
+      items: {
+        create: {
+          productId: product.id,
+          availabilityId: availability.id,
+          vendorId: product.listing.vendorId,
+          quantity: 1,
+          unitPrice: 1500,
+          subtotal: 1500,
+          commissionAmount: 150,
+          status: "CONFIRMED",
+        },
+      },
+    },
+    include: { items: true },
+  })
+
+  return booking.items[0]!.id
+}
+
+export async function bookingItemStatus(itemId: string): Promise<string> {
+  return (
+    await db().bookingItem.findUniqueOrThrow({
+      where: { id: itemId },
+      select: { status: true },
+    })
+  ).status
+}
