@@ -552,11 +552,11 @@ Pick the first unchecked story whose dependencies are `[x]`; work its tasks top-
 | 11  | E9-S1  | Moderate listings                            | [x]    |
 | 12  | E1-S1  | Search, filter & map                         | [x]    |
 | 13  | E2-S1  | Add to cart with soft hold                   | [x]    |
-| 14  | E2-S2  | Checkout, booking & Stripe charge            | [~]    |
-| 15  | E2-S3  | Webhook confirmation & lifecycle             | [~]    |
+| 14  | E2-S2  | Checkout, booking & Stripe charge            | [x]    |
+| 15  | E2-S3  | Webhook confirmation & lifecycle             | [x]    |
 | 16  | E1-S2  | Save to trip & itinerary                     | [x]    |
-| 17  | E6-S1  | Manage incoming bookings                     | [ ]    |
-| 18  | E3-S1  | View my bookings                             | [ ]    |
+| 17  | E6-S1  | Manage incoming bookings                     | [x]    |
+| 18  | E3-S1  | View my bookings                             | [x]    |
 | 19  | E10-S1 | Refund + transfer reversal                   | [ ]    |
 | 20  | E3-S2  | Cancel within policy                         | [ ]    |
 | 21  | E6-S2  | Earnings & payout status                     | [ ]    |
