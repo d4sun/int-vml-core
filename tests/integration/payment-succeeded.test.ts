@@ -2,10 +2,13 @@ import { PrismaClient } from "@prisma/client"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { startPayment } from "@/lib/services/payment"
 import { FakeStripe } from "@/lib/stripe/fake"
-import { handlePaymentSucceeded } from "@/lib/webhooks/payment-succeeded"
+import { paymentSucceededHandler } from "@/lib/webhooks/payment-succeeded"
+import {
+  RecordingTransactionalQueue,
+  TEST_APP_URL,
+} from "../helpers/recording-transactional-queue"
 import { handleStripeWebhook } from "@/lib/webhooks/stripe"
 import { createTestPrismaClient, truncatePublicSchema } from "../helpers/db"
-import { TEST_APP_URL } from "../helpers/recording-transactional-queue"
 
 let prisma: PrismaClient
 let stripe: FakeStripe
@@ -148,7 +151,12 @@ const send = (signed: { rawBody: string; signature: string }) =>
   handleStripeWebhook(signed.rawBody, signed.signature, {
     stripe,
     db: prisma,
-    handlers: { "payment_intent.succeeded": handlePaymentSucceeded },
+    handlers: {
+      "payment_intent.succeeded": paymentSucceededHandler({
+        emailQueue: new RecordingTransactionalQueue(),
+        appUrl: TEST_APP_URL,
+      }),
+    },
     logger: { error() {} },
   })
 
@@ -279,7 +287,12 @@ describe("payment succeeded webhook (Postgres, fake Stripe)", () => {
     const result = await handleStripeWebhook(signed.rawBody, "t=1,v1=bad", {
       stripe,
       db: prisma,
-      handlers: { "payment_intent.succeeded": handlePaymentSucceeded },
+      handlers: {
+        "payment_intent.succeeded": paymentSucceededHandler({
+          emailQueue: new RecordingTransactionalQueue(),
+          appUrl: TEST_APP_URL,
+        }),
+      },
       logger: { error() {} },
     })
 
