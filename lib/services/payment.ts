@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client"
 import { requireUser, type SessionSource } from "@/lib/auth/guards"
 import { ConflictError, NotFoundError } from "@/lib/errors"
 import type { StripeAdapter } from "@/lib/stripe/adapter"
+import { getEnvOrigin } from "@/lib/services/payment-origin"
 
 /** One booking item as the charge needs it: which vendor, and the money split. */
 export type PlannedItem = {
@@ -92,24 +93,29 @@ export type StartPaymentDeps = {
   session?: SessionSource
   db?: Pick<PrismaClient, "booking" | "payment">
   stripe?: StripeAdapter
+  /** Public origin for the Stripe return pages; defaults to `BETTER_AUTH_URL`. */
+  appUrl?: string
 }
 
 export type StartedPayment = {
   bookingId: string
-  stripePaymentIntentId: string
-  clientSecret: string | null
+  checkoutSessionId: string
+  /** The Stripe-hosted page the visitor pays on. */
+  checkoutUrl: string
   plan: ChargePlan
 }
 
 const DUPLICATE = "P2002"
 
 /**
- * Starts the card payment for the signed-in visitor's pending booking (E2-S2-02).
+ * Starts the card payment for the signed-in visitor's pending booking through
+ * Stripe Checkout (E2-S2-02, decided 2026-11-28).
  *
- * The Stripe call uses the key `checkout:<bookingId>:<attempt>`, so a repeated
- * submit of the same attempt returns the same intent (E2-S2-03, TC-E2S2-05).
- * The booking holds at most one `Payment`, enforced by a unique column, so a
- * second attempt that races the first finds the first and returns it.
+ * The session is created with the key `checkout:<bookingId>:<attempt>`, and a
+ * booking holds at most one `Payment` (a unique column), so a repeated or racing
+ * submit gets the same session and the same page address. Stripe's return
+ * pages are the processing page, for success and for cancel: the page only
+ * reads the booking's state; it never marks anything paid (CR-4).
  */
 export async function startPayment(
   bookingId: string,
@@ -134,7 +140,7 @@ export async function startPayment(
           vendor: { select: { stripeAccountId: true } },
         },
       },
-      payment: { select: { stripePaymentIntentId: true } },
+      payment: { select: { stripeCheckoutSessionId: true, checkoutUrl: true } },
     },
   })
 
@@ -161,28 +167,33 @@ export async function startPayment(
     })
   }
 
-  if (booking.payment) {
+  const payment = booking.payment
+
+  if (payment?.stripeCheckoutSessionId && payment.checkoutUrl) {
     return {
       bookingId,
-      stripePaymentIntentId: booking.payment.stripePaymentIntentId,
-      clientSecret: null,
+      checkoutSessionId: payment.stripeCheckoutSessionId,
+      checkoutUrl: payment.checkoutUrl,
       plan,
     }
   }
 
-  const intent = await stripe.createPaymentIntent(
-    plan.mode === "DESTINATION"
-      ? {
-          amount: plan.amount,
-          bookingId,
-          destinationAccountId: plan.destinationAccountId,
-          applicationFeeAmount: plan.applicationFeeAmount,
-        }
-      : {
-          amount: plan.amount,
-          bookingId,
-          transferGroup: `booking:${bookingId}`,
-        },
+  const origin = deps.appUrl ?? (await getEnvOrigin())
+  const returnPage = `${origin}/checkout/processing?booking=${bookingId}`
+  const session = await stripe.createCheckoutSession(
+    {
+      amount: plan.amount,
+      bookingId,
+      description: `Booking ${bookingId.slice(0, 8).toUpperCase()}`,
+      successUrl: returnPage,
+      cancelUrl: `${returnPage}&cancelled=1`,
+      ...(plan.mode === "DESTINATION"
+        ? {
+            destinationAccountId: plan.destinationAccountId,
+            applicationFeeAmount: plan.applicationFeeAmount,
+          }
+        : { transferGroup: `booking:${bookingId}` }),
+    },
     { idempotencyKey: `checkout:${bookingId}:${attempt}` }
   )
 
@@ -190,9 +201,10 @@ export async function startPayment(
     await db.payment.create({
       data: {
         bookingId,
-        stripePaymentIntentId: intent.id,
+        stripeCheckoutSessionId: session.id,
+        checkoutUrl: session.url,
         amount: plan.amount,
-        status: intent.status,
+        status: "open",
         applicationFeeAmount:
           plan.mode === "DESTINATION" ? plan.applicationFeeAmount : 0,
       },
@@ -200,23 +212,23 @@ export async function startPayment(
   } catch (error) {
     if ((error as { code?: string }).code !== DUPLICATE) throw error
 
-    // A racing attempt recorded its payment first; use that one.
+    // A racing attempt recorded its session first; use that one.
     const existing = await db.payment.findUniqueOrThrow({
       where: { bookingId },
     })
 
     return {
       bookingId,
-      stripePaymentIntentId: existing.stripePaymentIntentId,
-      clientSecret: null,
+      checkoutSessionId: existing.stripeCheckoutSessionId ?? session.id,
+      checkoutUrl: existing.checkoutUrl ?? session.url,
       plan,
     }
   }
 
   return {
     bookingId,
-    stripePaymentIntentId: intent.id,
-    clientSecret: intent.clientSecret,
+    checkoutSessionId: session.id,
+    checkoutUrl: session.url,
     plan,
   }
 }
