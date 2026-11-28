@@ -1,7 +1,16 @@
 import type { Prisma } from "@prisma/client"
 import { z } from "zod"
+import {
+  bookingConfirmedEmail,
+  newBookingEmail,
+  type BookingEmailLine,
+} from "@/lib/email/templates"
+import type { TransactionalEmailQueue } from "@/lib/email/transactional-queue"
+import type { EmailMessage } from "@/lib/email/types"
+import { deterministicUuid } from "@/lib/jobs/deterministic-id"
 import { audit } from "@/lib/services/audit"
 import type { StripeWebhookEvent } from "@/lib/stripe/adapter"
+import type { StripeEventHandler } from "@/lib/webhooks/stripe"
 
 /** The parts of Stripe's PaymentIntent this handler reads. */
 const intentSchema = z.object({
@@ -28,9 +37,28 @@ const intentSchema = z.object({
  * - A payment we have no record of yet is an error, so Stripe retries the
  *   event once our own write has committed.
  */
-export async function handlePaymentSucceeded(
+export type PaymentSucceededDeps = {
+  /** The queue the booking emails go to; defaults to the app's transactional queue. */
+  emailQueue?: TransactionalEmailQueue
+  /** Public origin for email links; defaults to `BETTER_AUTH_URL`. */
+  appUrl?: string
+}
+
+/** The handler, with its email queue and origin injectable for tests. */
+export function paymentSucceededHandler(
+  deps: PaymentSucceededDeps = {}
+): StripeEventHandler {
+  return (event, tx) => confirmPayment(event, tx, deps)
+}
+
+/** The handler as registered in the webhook table. */
+export const handlePaymentSucceeded: StripeEventHandler = (event, tx) =>
+  confirmPayment(event, tx, {})
+
+async function confirmPayment(
   event: StripeWebhookEvent,
-  tx: Prisma.TransactionClient
+  tx: Prisma.TransactionClient,
+  deps: PaymentSucceededDeps
 ): Promise<void> {
   const intent = intentSchema.parse(event.data.object)
 
@@ -117,5 +145,128 @@ export async function handlePaymentSucceeded(
         status: "pending",
       })),
     })
+  }
+
+  await queueBookingEmails(tx, payment.bookingId, deps)
+}
+
+const LONDON = (date: Date) =>
+  date.toLocaleString("en-GB", {
+    timeZone: "Europe/London",
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+
+const bookingRef = (bookingId: string) => bookingId.slice(0, 8).toUpperCase()
+
+const pounds = (pence: number) => `£${(pence / 100).toFixed(2)}`
+
+/**
+ * The tourist's confirmation, and one new-booking notice per vendor owner
+ * (E2-S3-03). They are queued in this transaction, so a queue failure undoes
+ * the confirmation too (CR-7), and each email has its own id, so a repeated
+ * event cannot send it twice.
+ */
+async function queueBookingEmails(
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  deps: PaymentSucceededDeps
+): Promise<void> {
+  const queue =
+    deps.emailQueue ??
+    (await (
+      await import("@/lib/jobs/transactional")
+    ).getTransactionalEmailQueue())
+  const appUrl = (
+    deps.appUrl ?? (await import("@/lib/env")).getEnv().BETTER_AUTH_URL
+  ).replace(/\/+$/, "")
+
+  const booking = await tx.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    select: {
+      id: true,
+      total: true,
+      tourist: { select: { name: true, email: true } },
+      items: {
+        select: {
+          vendorId: true,
+          quantity: true,
+          availability: { select: { startAt: true } },
+          product: {
+            select: {
+              name: true,
+              listing: {
+                select: { title: true, vendor: { select: { name: true } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  const line = (item: (typeof booking.items)[number]): BookingEmailLine => ({
+    title: `${item.product.listing.title}: ${item.product.name}`,
+    when: LONDON(item.availability.startAt),
+    places: item.quantity,
+  })
+
+  const send = async (message: EmailMessage, id: string) => {
+    await queue.enqueueInTransaction(tx, message, id)
+  }
+
+  const confirmed = bookingConfirmedEmail({
+    name: booking.tourist.name,
+    bookingRef: bookingRef(booking.id),
+    total: pounds(booking.total),
+    lines: booking.items.map(line),
+    bookingsUrl: `${appUrl}/account/bookings`,
+  })
+
+  await send(
+    {
+      to: booking.tourist.email,
+      subject: confirmed.subject,
+      html: confirmed.html,
+      text: confirmed.text,
+      tags: { kind: "booking-confirmed" },
+    },
+    deterministicUuid(
+      `booking-confirmed:${booking.id}:${booking.tourist.email.toLowerCase()}`
+    )
+  )
+
+  const vendorIds = [...new Set(booking.items.map((item) => item.vendorId))]
+
+  for (const vendorId of vendorIds) {
+    const items = booking.items.filter((item) => item.vendorId === vendorId)
+    const vendorName = items[0]!.product.listing.vendor.name
+    const owners = await tx.vendorMember.findMany({
+      where: { vendorId, role: "OWNER" },
+      select: { user: { select: { name: true, email: true } } },
+    })
+
+    for (const { user } of owners) {
+      const notice = newBookingEmail({
+        name: user.name,
+        vendorName,
+        bookingRef: bookingRef(booking.id),
+        lines: items.map(line),
+        dashboardUrl: `${appUrl}/vendor/listings`,
+      })
+
+      await send(
+        {
+          to: user.email,
+          subject: notice.subject,
+          html: notice.html,
+          text: notice.text,
+          tags: { kind: "new-booking" },
+        },
+        deterministicUuid(
+          `new-booking:${booking.id}:${vendorId}:${user.email.toLowerCase()}`
+        )
+      )
+    }
   }
 }
