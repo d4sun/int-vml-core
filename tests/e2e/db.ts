@@ -227,3 +227,53 @@ export async function addOpenSlot(
 
   return slot.id
 }
+
+/** A confirmed booking, for an existing visitor, on a listing's product starting in a week. */
+export async function addBookingForTourist(
+  listingId: string,
+  touristEmail: string
+): Promise<string> {
+  const product = await db().product.findFirstOrThrow({
+    where: { listingId },
+    select: { id: true, listing: { select: { vendorId: true } } },
+  })
+  const tourist = await db().user.findUniqueOrThrow({
+    where: { email: touristEmail },
+    select: { id: true },
+  })
+  const startAt = new Date(
+    Date.now() +
+      7 * 24 * 60 * 60 * 1000 +
+      Math.floor(Math.random() * 1000) * 60 * 1000
+  )
+  const availability = await db().availability.create({
+    data: {
+      productId: product.id,
+      startAt,
+      endAt: new Date(startAt.getTime() + 3600000),
+      capacity: 5,
+      remaining: 4,
+    },
+  })
+  const booking = await db().booking.create({
+    data: {
+      touristUserId: tourist.id,
+      status: "CONFIRMED",
+      total: 1500,
+      items: {
+        create: {
+          productId: product.id,
+          availabilityId: availability.id,
+          vendorId: product.listing.vendorId,
+          quantity: 1,
+          unitPrice: 1500,
+          subtotal: 1500,
+          commissionAmount: 150,
+          status: "CONFIRMED",
+        },
+      },
+    },
+  })
+
+  return booking.id
+}
