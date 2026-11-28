@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { runAction, type ActionState } from "@/lib/actions/result"
+import { addToCart } from "@/lib/services/cart"
+import { offerForTripItem } from "@/lib/services/trip-cart"
 import {
   addTripItem,
   createTrip,
@@ -106,4 +108,29 @@ export async function deleteTripFormAction(formData: FormData): Promise<void> {
   await runAction(() => deleteTrip({ tripId: text(formData, "tripId") }))
   revalidatePath("/trips")
   redirect("/trips")
+}
+
+/**
+ * "Add to cart" on a trip item: starts the cart with the item's preselected
+ * slot (the planned day if it has one). The cart rules, the hold and the rate
+ * limit all apply, so this is just the offer followed by a normal add.
+ */
+export async function addTripItemToCartFormAction(
+  formData: FormData
+): Promise<void> {
+  const tripId = text(formData, "tripId") ?? ""
+  const tripItemId = text(formData, "tripItemId") ?? ""
+
+  const offer = await offerForTripItem(tripItemId)
+
+  if (offer.preselectedAvailabilityId) {
+    await runAction(() =>
+      addToCart({
+        availabilityId: offer.preselectedAvailabilityId,
+        quantity: 1,
+      })
+    )
+  }
+
+  revalidatePath(`/trips/${tripId}`)
 }
