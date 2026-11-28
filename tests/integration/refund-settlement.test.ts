@@ -167,7 +167,8 @@ describe("settling a refund with Stripe (Postgres, fake Stripe)", () => {
     const row = await prisma.refund.findUniqueOrThrow({
       where: { id: refundId },
     })
-    expect(row).toMatchObject({ status: "succeeded" })
+    // Stripe's webhook, not this call, decides the refund succeeded (CR-4).
+    expect(row).toMatchObject({ status: "pending" })
     expect(row.stripeRefundId).toMatch(/^re_fake_/)
     expect(row.transferReversalId).toMatch(/^trr_fake_/)
   })

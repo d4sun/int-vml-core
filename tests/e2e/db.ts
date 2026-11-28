@@ -379,3 +379,38 @@ export async function moneyForBooking(bookingId: string) {
     })),
   }
 }
+
+/** A succeeded payment for a booking, as Stripe would have recorded it (E10-S1-07). */
+export async function paymentForBooking(
+  bookingId: string,
+  amount: number
+): Promise<string> {
+  const intentId = `pi_e2e_${bookingId.slice(0, 8)}`
+  await db().payment.create({
+    data: {
+      bookingId,
+      stripePaymentIntentId: intentId,
+      amount,
+      status: "succeeded",
+      applicationFeeAmount: 0,
+    },
+  })
+
+  return intentId
+}
+
+/** The refund on a booking's first item, for the refund journey's checks (E10-S1-07). */
+export async function refundForBooking(bookingId: string) {
+  const row = await db().refund.findFirstOrThrow({
+    where: { bookingItem: { bookingId } },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      status: true,
+      amount: true,
+      stripeRefundId: true,
+    },
+  })
+
+  return row
+}

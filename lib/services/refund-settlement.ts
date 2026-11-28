@@ -61,8 +61,10 @@ export async function settleRefund(
 
   if (!refund) throw new NotFoundError("Refund not found")
 
-  // Only a pending refund is sent. A pending refund that already has its Stripe
-  // refund (a partial, see below) is finished: only the reversal is sent again.
+  // Only a pending refund is sent. Settled means both Stripe calls have been
+  // answered: the refund id is stored, and (for a platform charge) the
+  // reversal id too. A refund with its refund id but no reversal is finished
+  // by sending only the reversal (below).
   if (refund.status !== "pending") {
     return { outcome: "skipped", refundId }
   }
@@ -78,6 +80,11 @@ export async function settleRefund(
 
   const vendorCount = new Set(item.booking.items.map((i) => i.vendorId)).size
   const destination = vendorCount === 1
+
+  // Both Stripe calls already answered (for this kind of charge): nothing to send.
+  if (refund.stripeRefundId && (destination || refund.transferReversalId)) {
+    return { outcome: "skipped", refundId }
+  }
 
   const sent = item.transfers.find(
     (t) => t.status === "created" && t.stripeTransferId
@@ -151,13 +158,14 @@ export async function settleRefund(
     }
   }
 
-  await db.refund.update({
-    where: { id: refundId },
-    data: {
-      status: "succeeded",
-      transferReversalId,
-    },
-  })
+  // The refund stays pending: Stripe's `refund.updated` webhook decides it
+  // succeeded (CR-4), and that is what marks the item and booking refunded.
+  if (transferReversalId) {
+    await db.refund.update({
+      where: { id: refundId },
+      data: { transferReversalId },
+    })
+  }
 
   return { outcome: "refunded", refundId, transferReversalId }
 }
