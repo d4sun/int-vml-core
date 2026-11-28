@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client"
 import { assertVendorCanSell } from "@/lib/catalog/visibility"
 import { ForbiddenError } from "@/lib/errors"
+import { audit } from "@/lib/services/audit"
 import type { StripeAdapter } from "@/lib/stripe/adapter"
 
 export type SettleOutcome =
@@ -9,7 +10,7 @@ export type SettleOutcome =
   | { transferId: string; outcome: "skipped" }
 
 export type SettleDeps = {
-  db?: Pick<PrismaClient, "transfer" | "vendor">
+  db?: Pick<PrismaClient, "transfer" | "vendor" | "auditLog">
   stripe?: StripeAdapter
   now?: () => Date
 }
@@ -20,6 +21,32 @@ function reasonOf(error: unknown): string {
 
   return message.slice(0, 200)
 }
+
+/**
+ * Records a failed send: the transfer becomes `failed` with its reason, and an
+ * audit row counts the attempt, which reconciliation reads (E10-S2-02).
+ */
+async function markFailed(
+  db: Pick<PrismaClient, "transfer" | "auditLog">,
+  transferId: string,
+  reason: string,
+  now: Date
+): Promise<void> {
+  await db.transfer.updateMany({
+    where: { id: transferId, status: "pending" },
+    data: { status: "failed", failureReason: reason, settledAt: now },
+  })
+  await audit.record(db, {
+    actorId: null,
+    action: TRANSFER_FAILED,
+    entityType: "Transfer",
+    entityId: transferId,
+    meta: { reason },
+  })
+}
+
+/** The audit action a failed send writes; reconciliation counts these. */
+export const TRANSFER_FAILED = "transfer.failed"
 
 /**
  * Sends one pending transfer to the vendor's connected account (E2-S3-02).
@@ -69,20 +96,14 @@ export async function settleTransfer(
     if (!(error instanceof ForbiddenError)) throw error
 
     const reason = `NOT_PAYABLE: ${(error.details as { reason?: string } | undefined)?.reason ?? "FORBIDDEN"}`
-    await db.transfer.updateMany({
-      where: { id: transfer.id, status: "pending" },
-      data: { status: "failed", failureReason: reason, settledAt: now },
-    })
+    await markFailed(db, transfer.id, reason, now)
 
     return { transferId, outcome: "failed", reason }
   }
 
   if (!vendor.stripeAccountId) {
     const reason = "NOT_PAYABLE: NO_ACCOUNT"
-    await db.transfer.updateMany({
-      where: { id: transfer.id, status: "pending" },
-      data: { status: "failed", failureReason: reason, settledAt: now },
-    })
+    await markFailed(db, transfer.id, reason, now)
 
     return { transferId, outcome: "failed", reason }
   }
@@ -106,11 +127,7 @@ export async function settleTransfer(
     return { transferId, outcome: "created", stripeTransferId: sent.id }
   } catch (error) {
     const reason = reasonOf(error)
-
-    await db.transfer.updateMany({
-      where: { id: transfer.id, status: "pending" },
-      data: { status: "failed", failureReason: reason, settledAt: now },
-    })
+    await markFailed(db, transfer.id, reason, now)
 
     return { transferId, outcome: "failed", reason }
   }

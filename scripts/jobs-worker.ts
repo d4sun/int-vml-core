@@ -8,6 +8,7 @@ import { registerWorkers } from "../lib/jobs/register"
 import { registerPeriodicJobs } from "../lib/jobs/schedules"
 import { cancelExpiredBookings } from "../lib/services/booking-cleanup"
 import { settlePendingTransfers } from "../lib/services/transfers"
+import { reconcileFailedTransfers } from "../lib/services/transfer-reconciliation"
 
 // Validate the whole environment before opening any connection, so a missing
 // or malformed variable fails here with a readable message.
@@ -30,6 +31,7 @@ await registerWorkers(boss, {
 await registerPeriodicJobs(boss, {
   cancelExpiredBookings: () => cancelExpiredBookings(),
   settlePendingTransfers: () => settlePendingTransfers(50),
+  reconcileFailedTransfers: () => reconcileFailedTransfers(50),
 })
 
 consoleJobLogger.info("jobs worker started", { emailTransport })

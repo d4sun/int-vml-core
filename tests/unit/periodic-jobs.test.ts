@@ -34,15 +34,17 @@ describe("periodic jobs", () => {
     await registerPeriodicJobs(boss as never, {
       cancelExpiredBookings: async () => ran.push("cleanup"),
       settlePendingTransfers: async () => ran.push("settle"),
+      reconcileFailedTransfers: async () => ran.push("reconcile"),
     })
 
     expect(PERIODIC_JOBS.map((j) => j.name)).toEqual([
       JOB_NAMES.bookingCleanup,
       JOB_NAMES.transferSettle,
+      JOB_NAMES.transferReconcile,
     ])
     expect(calls).toContain(
       `schedule:${JOB_NAMES.bookingCleanup}:${CLEANUP_CRON}`
     )
-    expect(ran.sort()).toEqual(["cleanup", "settle"])
+    expect(ran.sort()).toEqual(["cleanup", "reconcile", "settle"])
   })
 })

@@ -4,12 +4,14 @@ import { CLEANUP_CRON } from "@/lib/services/booking-cleanup"
 export const JOB_NAMES = {
   bookingCleanup: "booking.cleanup",
   transferSettle: "transfer.settle",
+  transferReconcile: "transfer.reconcile",
 } as const
 
 /** Every periodic job the app runs, with its cron. Idempotent: pg-boss keeps one schedule per name. */
 export const PERIODIC_JOBS = [
   { name: JOB_NAMES.bookingCleanup, cron: CLEANUP_CRON },
   { name: JOB_NAMES.transferSettle, cron: "* * * * *" },
+  { name: JOB_NAMES.transferReconcile, cron: "*/10 * * * *" },
 ] as const
 
 export type PeriodicSchedulerBoss = Pick<
@@ -23,6 +25,7 @@ export async function registerPeriodicJobs(
   workers: {
     cancelExpiredBookings: () => Promise<unknown>
     settlePendingTransfers: () => Promise<unknown>
+    reconcileFailedTransfers: () => Promise<unknown>
   }
 ): Promise<void> {
   for (const job of PERIODIC_JOBS) {
@@ -35,5 +38,8 @@ export async function registerPeriodicJobs(
   })
   await boss.work(JOB_NAMES.transferSettle, { batchSize: 1 }, async () => {
     await workers.settlePendingTransfers()
+  })
+  await boss.work(JOB_NAMES.transferReconcile, { batchSize: 1 }, async () => {
+    await workers.reconcileFailedTransfers()
   })
 }
