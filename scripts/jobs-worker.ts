@@ -5,6 +5,9 @@ import { startBoss } from "../lib/jobs/boss"
 import { jobConnectionString } from "../lib/jobs/config"
 import { consoleJobLogger } from "../lib/jobs/logger"
 import { registerWorkers } from "../lib/jobs/register"
+import { registerPeriodicJobs } from "../lib/jobs/schedules"
+import { cancelExpiredBookings } from "../lib/services/booking-cleanup"
+import { settlePendingTransfers } from "../lib/services/transfers"
 
 // Validate the whole environment before opening any connection, so a missing
 // or malformed variable fails here with a readable message.
@@ -21,6 +24,12 @@ const boss = await startBoss({
 await registerWorkers(boss, {
   emailSender,
   logger: consoleJobLogger,
+})
+
+// Periodic work: unpaid bookings are cancelled, and vendor transfers are sent.
+await registerPeriodicJobs(boss, {
+  cancelExpiredBookings: () => cancelExpiredBookings(),
+  settlePendingTransfers: () => settlePendingTransfers(50),
 })
 
 consoleJobLogger.info("jobs worker started", { emailTransport })
