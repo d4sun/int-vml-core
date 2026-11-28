@@ -1,4 +1,5 @@
 import { handleAccountUpdated } from "./account-updated"
+import { handleDispute } from "./dispute"
 import { handlePaymentSucceeded } from "./payment-succeeded"
 import { handleRefundUpdated } from "./refund-updated"
 import type { StripeHandlerTable } from "./stripe"
@@ -12,4 +13,7 @@ export const stripeHandlers: StripeHandlerTable = {
   "account.updated": handleAccountUpdated,
   "payment_intent.succeeded": handlePaymentSucceeded,
   "refund.updated": handleRefundUpdated,
+  "charge.dispute.created": handleDispute,
+  "charge.dispute.updated": handleDispute,
+  "charge.dispute.closed": handleDispute,
 }
