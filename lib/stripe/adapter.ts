@@ -36,6 +36,17 @@ export type CreateConnectAccountInput = {
  * (the platform's commission); or a platform charge (several vendors): the
  * money is held by the platform and split by transfers on confirmation.
  */
+/** A transfer of part of a payment to one vendor's connected account (pence). */
+export type CreateTransferInput = {
+  amount: number
+  destinationAccountId: string
+  transferGroup: string
+  /** Our transfer id, stored as metadata so a Stripe transfer traces back to it. */
+  transferId: string
+}
+
+export type Transfer = { id: string; amount: number; status: string }
+
 export type CreatePaymentIntentInput = {
   amount: number
   /** Our booking id, stored as metadata so a payment traces back to it. */
@@ -117,6 +128,12 @@ export interface StripeAdapter {
     input: CreatePaymentIntentInput,
     options?: RequestOptions
   ): Promise<PaymentIntent>
+
+  /** Sends a vendor's share of a platform charge. Same key, same transfer. */
+  createTransfer(
+    input: CreateTransferInput,
+    options?: RequestOptions
+  ): Promise<Transfer>
 }
 
 /** The webhook could not be verified. Callers answer 400 and do nothing else. */

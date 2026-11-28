@@ -373,9 +373,13 @@ model Payment {
 model Transfer {
   id              String   @id @default(uuid())
   bookingItemId   String
-  stripeTransferId String  @unique
+  // Null until Stripe has accepted the transfer (see settlement, E2-S3-02).
+  stripeTransferId String? @unique
   amount          Int      // pence
   status          String
+  // Why the transfer failed, when it did; the booking stays paid regardless.
+  failureReason   String?
+  settledAt       DateTime?
   createdAt       DateTime @default(now())
 
   bookingItem BookingItem @relation(fields: [bookingItemId], references: [id])
