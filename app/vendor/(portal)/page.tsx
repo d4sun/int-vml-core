@@ -17,6 +17,9 @@ export default async function VendorHomePage() {
         <Link href="/vendor/payouts/setup" className="underline">
           Payout setup
         </Link>
+        <Link href="/vendor/earnings" className="underline">
+          Earnings
+        </Link>
       </p>
     </SurfaceShell>
   )
