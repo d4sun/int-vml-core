@@ -9,7 +9,7 @@ import {
 
 export type IssueRefundDeps = {
   session?: SessionSource
-  db?: Pick<PrismaClient, "$transaction" | "refund">
+  db?: Pick<PrismaClient, "$transaction" | "refund" | "auditLog">
   stripe?: StripeAdapter
 }
 

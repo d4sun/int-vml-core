@@ -213,6 +213,17 @@ export class StripeIdempotencyError extends Error {
   }
 }
 
+/**
+ * The vendor's balance cannot cover a transfer reversal (E10-S1-08). The
+ * refund is still sent to the visitor; the reversal is retried by an admin.
+ */
+export class StripeInsufficientFundsError extends Error {
+  constructor(message = "The vendor's balance cannot cover this reversal") {
+    super(message)
+    this.name = "StripeInsufficientFundsError"
+  }
+}
+
 /** A Stripe account that does not exist (or is not ours). */
 export class StripeAccountNotFoundError extends Error {
   constructor(accountId: string) {
