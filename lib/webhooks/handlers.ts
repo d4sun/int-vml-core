@@ -1,5 +1,6 @@
 import { handleAccountUpdated } from "./account-updated"
 import { handlePaymentSucceeded } from "./payment-succeeded"
+import { handleRefundUpdated } from "./refund-updated"
 import type { StripeHandlerTable } from "./stripe"
 
 /**
@@ -10,4 +11,5 @@ import type { StripeHandlerTable } from "./stripe"
 export const stripeHandlers: StripeHandlerTable = {
   "account.updated": handleAccountUpdated,
   "payment_intent.succeeded": handlePaymentSucceeded,
+  "refund.updated": handleRefundUpdated,
 }
